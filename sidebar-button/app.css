@@ -1,0 +1,185 @@
+.sidebar-button {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 6px);
+  color: var(--subtle-foreground, var(--muted-foreground));
+  cursor: pointer;
+}
+
+/* The size and line of BB's icons on a phone. */
+.sidebar-icon {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.5px;
+}
+
+/*
+ * Mobile Layout lays the bar out from its right end, so the highest order
+ * comes first on the left, opposite the right panel's button.
+ */
+[data-bb-plugin="sidebar-button"] > span {
+  order: 99;
+}
+
+/*
+ * The home page's card: the right panel's button sits at its right end, and
+ * this one mirrors it at the left, with Mobile Layout's measures.
+ */
+.sidebar-home-button {
+  position: fixed;
+  z-index: 40;
+  left: calc(
+    env(safe-area-inset-left, 0px) + var(--phone-layout-card-inset) + 1px + var(--phone-layout-card-padding)
+  );
+  bottom: calc(var(--phone-layout-card-bottom) + 1px + var(--phone-layout-card-padding));
+  display: none;
+  /* The right panel's button on this card uses the text color. */
+  color: var(--foreground);
+}
+
+/* While the keyboard is open, the card gives its room to the page. */
+@container not style(--phone-layout-keyboard: 1) {
+  html[data-phone-layout] main > .sidebar-home-button {
+    display: inline-flex;
+  }
+}
+
+/* Thread rows leave a sideways pan to the swipe and scroll as before. */
+html[data-phone-layout] [data-sidebar-rename-row] {
+  touch-action: pan-y;
+}
+
+/* A swiped row covers its track in the sidebar's own color. */
+.row-swipe-row {
+  position: relative;
+  z-index: 1;
+  background: var(--sidebar, var(--background));
+  will-change: translate;
+}
+
+/*
+ * The track behind a swiped row: quiet while the finger travels, its icon
+ * coming up with the distance, then filled in the foreground once a release
+ * would act. Dismiss waiting shows at the left, under a row moving right; Archive at the
+ * right.
+ */
+.row-swipe-track {
+  position: absolute;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 14px;
+  border-radius: var(--radius-md, 6px);
+  background: var(--state-hover, var(--muted));
+  color: var(--muted-foreground);
+  pointer-events: none;
+  transition:
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.row-swipe-track[data-armed] {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.row-swipe-icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  opacity: 0;
+  scale: calc(0.7 + var(--row-swipe-progress, 0) * 0.2);
+  transition: scale 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.row-swipe-icon > * {
+  width: 100%;
+  height: 100%;
+}
+
+.row-swipe-track[data-side="dismissWaiting"] > [data-action="dismissWaiting"],
+.row-swipe-track[data-side="archive"] > [data-action="archive"] {
+  opacity: calc(0.35 + var(--row-swipe-progress, 0) * 0.65);
+}
+
+.row-swipe-track[data-armed] > .row-swipe-icon {
+  scale: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-swipe-track,
+  .row-swipe-icon {
+    transition: none;
+  }
+}
+
+/*
+ * A phone's thread bar holds one row of buttons. Recap and Follow-ups each
+ * add one that repeats the card they already show above the message box, so
+ * on a phone they give their room to the rest.
+ */
+html[data-phone-layout] header [data-bb-plugin="bb-recap"],
+html[data-phone-layout] header [data-bb-plugin="followups"] {
+  display: none;
+}
+
+/* Recap and Follow-ups beside the composer's microphone, in its button size. */
+.composer-action {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 6px);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background-color 150ms, color 150ms;
+}
+
+.composer-action:hover {
+  background: var(--state-hover);
+  color: var(--foreground);
+  transition-duration: 0ms;
+}
+
+.composer-action[aria-pressed="true"] {
+  background: var(--state-active, var(--state-hover));
+  color: var(--foreground);
+}
+
+.composer-action[aria-busy="true"] {
+  animation: composer-action-busy 1.2s ease-in-out infinite;
+}
+
+@keyframes composer-action-busy {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.composer-action-icon {
+  width: 16px;
+  height: 16px;
+}
+
+html[data-phone-layout] .composer-action {
+  width: 36px;
+  height: 36px;
+}
+
+html[data-phone-layout] .composer-action-icon {
+  width: 20px;
+  height: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-action[aria-busy="true"] {
+    animation: none;
+    opacity: 0.6;
+  }
+}

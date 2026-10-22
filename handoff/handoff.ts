@@ -1,0 +1,746 @@
+// Handoff delivery: render the captured session into a markdown handoff
+// document, upload it as a project attachment, and spawn the target-provider
+// thread seeded with it.
+import type { BbPluginApi } from "@bb/plugin-sdk";
+import { CAPS, captureThread, type CapturedSession, type TranscriptEntry } from "./capture";
+import {
+  captureWorkingState,
+  deliverPatch,
+  planTransfer,
+  TransferError,
+  type TransferPlan,
+  type WorkingState,
+  type WorkspaceMode,
+} from "./machines";
+
+export { TransferError } from "./machines";
+export type { TransferPlan, WorkingState, WorkspaceMode } from "./machines";
+
+/**
+ * Thinking effort for the target thread. Mirrors bb's `ReasoningLevel`, which
+ * the SDK declares but does not export. One list, shared by the rpc schema and
+ * both CLI surfaces, so a level cannot exist in one and be rejected by another.
+ */
+export const REASONING_LEVELS = [
+  "none",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "ultracode",
+  "max",
+  "ultra",
+] as const;
+
+export type ReasoningLevel = (typeof REASONING_LEVELS)[number];
+
+export interface HandoffRequest {
+  sourceThreadId: string;
+  providerId: string;
+  model?: string;
+  /**
+   * Thinking effort for the new thread. Omit to let the target model use its
+   * own default — bb re-derives it, so omitting is not the same as "none".
+   */
+  reasoningLevel?: ReasoningLevel;
+  workspace: WorkspaceMode;
+  /**
+   * Machine (host id or name) to run the new thread on. Omit to stay on the
+   * source thread's machine.
+   */
+  machine?: string | null;
+  extraInstructions?: string;
+  /** Capture only events up to this seq (anchored at a chat message). */
+  untilSeq?: number;
+  /**
+   * Ask the source agent to write a handoff briefing before the transfer.
+   * Best-effort: skipped when the source thread is busy, failed, or does not
+   * answer within BRIEFING_TIMEOUT_MS.
+   */
+  briefing?: boolean;
+}
+
+/**
+ * Whether the receiving thread's first turn confirmed the pickup.
+ * "pending" until its first idle/failed event (best-effort: pending
+ * verifications don't survive a plugin reload and expire after 15 minutes).
+ */
+export type VerificationState = "pending" | "confirmed" | "failed";
+
+export interface HandoffRecord {
+  sourceThreadId: string;
+  sourceProvider: string;
+  targetThreadId: string;
+  targetProvider: string;
+  model: string | null;
+  reasoningLevel?: ReasoningLevel | null;
+  workspace: WorkspaceMode;
+  at: number;
+  verification?: VerificationState;
+  /** Machine the new thread runs on, when it differs from the source's. */
+  targetMachine?: string | null;
+}
+
+export type BriefingOutcome =
+  | "included"
+  | "skipped-busy"
+  /** The source agent is blocked on the user — an approval or a question. */
+  | "skipped-blocked"
+  | "skipped-unanswered"
+  | "off";
+
+export const REALTIME_CHANNEL = "handoff:progress";
+
+/** Most recent handoff records kept in kv; older ones are pruned on write. */
+export const HISTORY_LIMIT = 100;
+
+// --- Briefing: ask the outgoing agent to write a handoff note ---------------
+
+export const BRIEFING_TIMEOUT_MS = 90_000;
+
+/**
+ * How often the briefing wait re-checks whether the source agent stopped to
+ * ask something. Cheap (one local query) next to the 90s it saves.
+ */
+export const BRIEFING_POLL_MS = 2_000;
+
+const BRIEFING_PROMPT = [
+  "This session is being handed off to another agent. Before the transfer, write a handoff briefing for your successor. Reply with only the briefing:",
+  "",
+  "- **Current state** — what has been completed and verified",
+  "- **In progress** — what you were doing right now and what is unfinished",
+  "- **Decisions** — choices made so far and why, so they are not relitigated",
+  "- **Gotchas** — anything surprising the next agent should not rediscover the hard way",
+  "- **Next steps** — what you would do next, in order",
+  "",
+  "Do not do any further work on the task itself.",
+].join("\n");
+
+/**
+ * Handoffs currently waiting for their source thread's briefing turn to
+ * finish. server.ts settles these from its thread.idle / thread.failed
+ * listeners.
+ */
+const briefingWaiters = new Map<string, (text: string | null) => void>();
+
+export function settleBriefing(threadId: string, text: string | null): void {
+  briefingWaiters.get(threadId)?.(text);
+}
+
+/**
+ * Whether the source agent is blocked on the user right now — an approval it
+ * needs granted, or a question it asked. bb tracks this outside the thread's
+ * status: a blocked run has not settled, so the thread sits at `active` and
+ * looks exactly like one still working, and `thread.idle` never arrives.
+ * Answering is the user's call, so this only ever reports; it never resolves
+ * or cancels the interaction.
+ */
+async function blockedOnUser(bb: BbPluginApi, threadId: string): Promise<boolean | null> {
+  try {
+    const interactions = await bb.sdk.threads.interactions.list({ threadId });
+    return interactions.some((interaction) => interaction.status === "pending");
+  } catch {
+    // Can't ask. null, not false: the caller stops polling and falls back to
+    // the timeout rather than re-asking a question that is not being answered.
+    return null;
+  }
+}
+
+/** How the wait for the briefing ended. */
+type BriefingWait =
+  | { kind: "answered"; text: string | null }
+  | { kind: "blocked" };
+
+/**
+ * Send the briefing prompt to the source thread and wait for its answer.
+ * Only runs against an idle thread with nothing outstanding for the user — a
+ * busy source is never steered off its in-flight turn (this also makes
+ * agent-initiated `bb handoff --self` skip the briefing naturally, since that
+ * thread is mid-turn running the CLI), and one already waiting on an answer is
+ * not handed a second question on top of the first.
+ *
+ * The wait ends three ways: the turn completes (the answer), the agent stops to
+ * ask something (give up now — that turn cannot finish without the user, so the
+ * remaining timeout is dead time), or the timeout.
+ */
+async function requestBriefing(
+  bb: BbPluginApi,
+  threadId: string,
+): Promise<{ text: string | null; outcome: BriefingOutcome }> {
+  try {
+    // deno-lint-ignore no-explicit-any
+    const thread = (await bb.sdk.threads.get({ threadId })) as any;
+    if (thread.status !== "idle") return { text: null, outcome: "skipped-busy" };
+    if (thread.hasPendingInteraction) return { text: null, outcome: "skipped-blocked" };
+  } catch {
+    return { text: null, outcome: "skipped-busy" };
+  }
+
+  let done = false;
+  let settle!: (value: BriefingWait) => void;
+  const waited = new Promise<BriefingWait>((resolve) => {
+    settle = resolve;
+  });
+  briefingWaiters.set(threadId, (text) => settle({ kind: "answered", text }));
+  const timer = setTimeout(() => settle({ kind: "answered", text: null }), BRIEFING_TIMEOUT_MS);
+
+  // Self-scheduling rather than an interval: one slow lookup must not stack up
+  // behind itself, and nothing may outlive the wait.
+  let pollTimer: ReturnType<typeof setTimeout> | undefined;
+  const pollForBlock = () => {
+    pollTimer = setTimeout(async () => {
+      if (done) return;
+      const blocked = await blockedOnUser(bb, threadId);
+      if (blocked === null) {
+        bb.log.warn(`briefing: could not read pending interactions for ${threadId}`);
+        return;
+      }
+      if (blocked) settle({ kind: "blocked" });
+      else if (!done) pollForBlock();
+    }, BRIEFING_POLL_MS);
+  };
+
+  try {
+    await bb.sdk.threads.send({
+      threadId,
+      mode: "auto",
+      input: [{ type: "text", text: BRIEFING_PROMPT, mentions: [] }],
+    });
+    pollForBlock();
+    const result = await waited;
+    if (result.kind === "blocked") return { text: null, outcome: "skipped-blocked" };
+    return {
+      text: result.text,
+      outcome: result.text?.trim() ? "included" : "skipped-unanswered",
+    };
+  } catch {
+    return { text: null, outcome: "skipped-unanswered" };
+  } finally {
+    done = true;
+    clearTimeout(timer);
+    if (pollTimer !== undefined) clearTimeout(pollTimer);
+    briefingWaiters.delete(threadId);
+  }
+}
+
+// --- Verification: did the receiving thread pick the work up? ---------------
+
+export const VERIFY_CHANNEL = "handoff:verify";
+const VERIFICATION_TTL_MS = 15 * 60_000;
+
+const pendingVerifications = new Map<
+  string,
+  { kvKey: string; sourceThreadId: string; expiresAt: number }
+>();
+
+/**
+ * Called by server.ts's thread.idle / thread.failed listeners for every
+ * thread; only threads registered as fresh handoff targets are affected.
+ * Persists the outcome on the history record and announces it in realtime.
+ */
+export async function settleVerification(
+  bb: BbPluginApi,
+  threadId: string,
+  ok: boolean,
+  firstReply?: string | null,
+): Promise<void> {
+  const now = Date.now();
+  for (const [key, value] of pendingVerifications) {
+    if (value.expiresAt < now) pendingVerifications.delete(key);
+  }
+  const entry = pendingVerifications.get(threadId);
+  if (!entry) return;
+  pendingVerifications.delete(threadId);
+  const verification: VerificationState = ok && Boolean(firstReply?.trim()) ? "confirmed" : "failed";
+  try {
+    const record = await bb.storage.kv.get<HandoffRecord>(entry.kvKey);
+    if (record) await bb.storage.kv.set(entry.kvKey, { ...record, verification });
+  } catch {
+    // History pruning may have removed the record; the signal still goes out.
+  }
+  bb.realtime.publish(VERIFY_CHANNEL, {
+    targetThreadId: threadId,
+    sourceThreadId: entry.sourceThreadId,
+    verification,
+  });
+}
+
+function renderEntry(entry: TranscriptEntry, sourceProvider: string): string {
+  const nested = entry.nested ? " (subagent)" : "";
+  switch (entry.kind) {
+    case "user":
+      return `### User\n\n${entry.body}`;
+    case "assistant":
+      return `### Assistant (${sourceProvider})${nested}\n\n${entry.body}`;
+    case "reasoning":
+      return `**[thinking]**${nested}\n\n> ${entry.body.replaceAll("\n", "\n> ")}`;
+    case "command":
+      return `**Ran command**${nested}\n\n\`\`\`\n${entry.body}\n\`\`\``;
+    case "tool":
+      return `**Tool: ${entry.title ?? "unknown"}**${nested}\n\n\`\`\`\n${entry.body}\n\`\`\``;
+    case "files":
+      return `**${entry.title ?? "File changes"}**${nested}\n\n${entry.body}`;
+    case "web":
+      return `**${entry.title ?? "Web"}**${nested}\n\n${entry.body}`;
+    case "plan":
+      return `**Proposed plan**${nested}\n\n${entry.body}`;
+    case "note":
+      return `> ${entry.body}`;
+  }
+}
+
+export interface RenderOptions {
+  sameFamily?: boolean;
+  /** Where the new thread runs; drives the cross-machine wording. */
+  transfer?: TransferPlan | null;
+  /** Source workspace git state, captured before the transfer. */
+  working?: WorkingState | null;
+  /** Absolute path of the uncommitted patch, on the target machine. */
+  patchPath?: string | null;
+}
+
+/** Prose for the workspace the receiving thread actually gets. */
+function describeTargetWorkspace(transfer: TransferPlan): string {
+  const machine = transfer.hostName ?? "the target machine";
+  switch (transfer.workspace) {
+    case "reuse":
+      return "the same workspace the previous agent used";
+    case "checkout":
+      return `the project's checkout on ${machine} (\`${transfer.checkoutPath}\`)`;
+    case "worktree":
+      return `a fresh git worktree on ${machine}${transfer.baseBranch ? `, based on \`${transfer.baseBranch}\`` : ", based on the default branch"}`;
+    case "personal":
+      return `a blank personal workspace on ${machine} (no repo checkout)`;
+  }
+}
+
+function renderWorkingState(
+  working: WorkingState,
+  transfer: TransferPlan,
+  patchPath: string | null,
+): string {
+  const where = transfer.sourceHostName ?? "the source machine";
+  const lines = [
+    "",
+    `## Working state on ${where}`,
+    "",
+    `The previous agent's workspace was on \`${working.branch ?? "(no branch)"}\`${working.headSha ? ` at commit \`${working.headSha.slice(0, 12)}\`` : ""}.`,
+    "",
+  ];
+  if (!working.dirty) {
+    lines.push("Its working tree was clean — everything it produced is committed, so nothing is stranded there.", "");
+    return lines.join("\n");
+  }
+  lines.push(
+    `**It had uncommitted changes: ${working.files.length} file(s), +${working.insertions}/-${working.deletions}.** Those edits live on ${where} and are NOT present in your workspace unless you apply them.`,
+    "",
+    ...working.files.slice(0, 50).map((file) => `- \`${file.status}\` ${file.path}`),
+    ...(working.files.length > 50 ? [`- … and ${working.files.length - 50} more`] : []),
+    "",
+  );
+  if (patchPath) {
+    lines.push(
+      `A patch of exactly those uncommitted changes has been written to \`${patchPath}\` on this machine. To pick the work up where it stood:`,
+      "",
+      "```",
+      `git apply --3way ${patchPath}`,
+      "```",
+      "",
+      `Read the patch before applying it, and check \`git status\` afterwards. If it does not apply cleanly your checkout is at a different commit — reconcile before continuing rather than forcing it.${working.patchTruncated ? " NOTE: the patch was truncated to fit, so it is incomplete — treat it as a guide, not the whole change." : ""}`,
+      "",
+    );
+  } else {
+    lines.push(
+      `Those changes could NOT be carried over${working.note ? ` (${working.note})` : ""}. Tell the user before doing work that would conflict with them.`,
+      "",
+    );
+  }
+  return lines.join("\n");
+}
+
+export function renderHandoff(
+  captured: CapturedSession,
+  capturedAt: Date,
+  briefing?: string | null,
+  options?: RenderOptions,
+): string {
+  const sameFamily = options?.sameFamily ?? false;
+  const transfer = options?.transfer ?? null;
+  const crossMachine = transfer?.crossMachine ?? false;
+  const sourceMachine = transfer?.sourceHostName ?? "the source machine";
+  const targetMachine = transfer?.hostName ?? "this machine";
+
+  const steps = [
+    briefing?.trim()
+      ? "Read the outgoing agent's briefing and the full transcript below before doing anything else."
+      : "Read the full transcript below before doing anything else.",
+    ...(sameFamily
+      ? [
+          "The transcript is YOUR OWN conversation history with this user, continued on a new bb thread. Continue seamlessly: do not re-introduce yourself and do not summarize back what you already know.",
+        ]
+      : []),
+    crossMachine
+      ? `You are on a DIFFERENT MACHINE than the previous agent. The source workspace path above is on ${sourceMachine} and does not exist here; you are running in ${transfer ? describeTargetWorkspace(transfer) : "a new workspace"}. Start with \`git status\` and \`git log\` in your own workspace, and read the "Working state" section below before assuming any file is where the transcript left it.`
+      : "The workspace path above holds the live working state — check `git status` and `git log` there for uncommitted work.",
+    "Continue from where the previous agent left off. Do not redo completed steps; honor decisions already made unless the user says otherwise.",
+    ...(captured.nativeSessionPath
+      ? crossMachine
+        ? [
+            `The source provider's native session file (\`${captured.nativeSessionPath}\`) is on ${sourceMachine} and is not readable from here — this document is your complete record.`,
+          ]
+        : [
+            sameFamily
+              ? "The native session file above is your own full session log (JSONL). When you need exact detail this rendered transcript truncated — precise file contents, complete command output — read that file directly; it is the authoritative record."
+              : "If you need raw detail the transcript truncated, the native session file above contains the source provider's full session (JSONL).",
+          ]
+      : []),
+    `The previous agent is still reachable in bb thread \`${captured.threadId}\`. If something essential is unclear, ask it directly: \`bb thread tell ${captured.threadId} "<your question>" --mode queue\`, then \`bb thread wait ${captured.threadId}\` and \`bb thread output ${captured.threadId}\` to read the answer. Ask at most once or twice, then continue on your own — that agent no longer owns this task.`,
+  ];
+
+  const header = [
+    "# Session handoff",
+    "",
+    `- Source thread: ${captured.title} (\`${captured.threadId}\`)`,
+    `- Source provider: ${captured.providerId}`,
+    crossMachine
+      ? `- Machine: handed off from ${sourceMachine} to ${targetMachine} — this thread runs on ${targetMachine}`
+      : transfer?.hostName
+        ? `- Machine: ${transfer.hostName}`
+        : null,
+    `- Source workspace${crossMachine ? ` (on ${sourceMachine})` : ""}: ${captured.workspacePath ?? "(none)"}${captured.branchName ? ` (branch \`${captured.branchName}\`)` : ""}`,
+    crossMachine && transfer ? `- Your workspace: ${describeTargetWorkspace(transfer)}` : null,
+    ...(transfer?.notes ?? []).map((note) => `- Note: ${note}`),
+    `- Captured: ${capturedAt.toISOString()} — ${captured.turns} turns, ${captured.entries.length} transcript entries`,
+    captured.untilSeq != null
+      ? `- Scope: partial capture — the conversation only up to a message the user selected (events up to seq ${captured.untilSeq}); anything the source thread did after that message is intentionally excluded`
+      : null,
+    `- Native provider session file: ${captured.nativeSessionPath ? `\`${captured.nativeSessionPath}\`` : "(not found)"}`,
+    "",
+    "## How to continue",
+    "",
+    "You are taking over this session from the provider named above.",
+    "",
+    ...steps.map((step, index) => `${index + 1}. ${step}`),
+    "",
+  ].filter((line) => line !== null).join("\n");
+
+  const latest = [
+    "",
+    "## Latest result",
+    "",
+    captured.latestOutput?.trim() || "(no final output captured)",
+    "",
+  ].join("\n");
+
+  const briefingSection = briefing?.trim()
+    ? [
+        "",
+        "## Briefing from the outgoing agent",
+        "",
+        "Written by the outgoing agent immediately before this handoff — the freshest statement of state and intent:",
+        "",
+        briefing.trim(),
+        "",
+      ].join("\n")
+    : "";
+
+  const workingSection =
+    options?.working && transfer
+      ? renderWorkingState(options.working, transfer, options.patchPath ?? null)
+      : "";
+
+  const rendered = captured.entries.map((entry) => renderEntry(entry, captured.providerId));
+  const transcript = fitTranscript(
+    rendered,
+    CAPS.totalDocBytes - header.length - latest.length - briefingSection.length - workingSection.length,
+  );
+
+  return `${header}${workingSection}${latest}${briefingSection}\n## Transcript\n\n${transcript}\n`;
+}
+
+/** Keep the head and tail of the transcript when the whole thing won't fit. */
+export function fitTranscript(blocks: string[], budget: number): string {
+  const joined = blocks.join("\n\n---\n\n");
+  if (joined.length <= budget) return joined;
+
+  const head: string[] = [];
+  const tail: string[] = [];
+  let used = 0;
+  const headCount = Math.min(2, blocks.length);
+  for (let i = 0; i < headCount; i++) {
+    head.push(blocks[i]!);
+    used += blocks[i]!.length + 10;
+  }
+  for (let i = blocks.length - 1; i >= headCount; i--) {
+    const block = blocks[i]!;
+    if (used + block.length + 10 > budget) break;
+    tail.unshift(block);
+    used += block.length + 10;
+  }
+  const dropped = blocks.length - head.length - tail.length;
+  return [...head, `> [${dropped} earlier entries omitted to fit the handoff size budget]`, ...tail].join(
+    "\n\n---\n\n",
+  );
+}
+
+export function buildIntroPrompt(
+  captured: CapturedSession,
+  request: HandoffRequest,
+  hasBriefing = false,
+  context?: { transfer?: TransferPlan | null; patchPath?: string | null },
+): string {
+  const sameFamily = request.providerId === captured.providerId;
+  const transfer = context?.transfer ?? null;
+  const lines = [
+    sameFamily
+      ? "You are continuing YOUR OWN in-progress session on a new bb thread (same provider, new thread)."
+      : `You are taking over an in-progress agent session handed off from ${captured.providerId}.`,
+    ...(transfer?.crossMachine
+      ? [
+          `This thread runs on a different machine (${transfer.hostName ?? "this machine"}) than the session it continues (${transfer.sourceHostName ?? "the source machine"}), so the previous agent's files are not simply here — the handoff document explains what your workspace contains.`,
+        ]
+      : []),
+    "Read the attached handoff document in full — it contains the complete conversation transcript and the current state of the work.",
+    ...(hasBriefing
+      ? [
+          "It also contains a briefing the outgoing agent wrote moments before this handoff — treat it as the freshest statement of state and intent.",
+        ]
+      : []),
+    ...(context?.patchPath
+      ? [
+          `The source machine had uncommitted changes; a patch of them is at ${context.patchPath} on this machine. Follow the handoff document's "Working state" section before you edit anything.`,
+        ]
+      : []),
+    "Then reply with one short paragraph confirming where the work stands, and continue from that point. Do not redo completed work.",
+  ];
+  if (request.extraInstructions?.trim()) {
+    lines.push("", `Additional instructions from the user: ${request.extraInstructions.trim()}`);
+  }
+  return lines.join("\n");
+}
+
+// deno-lint-ignore no-explicit-any
+function resolveEnvironment(plan: TransferPlan, captured: CapturedSession): any {
+  if (plan.workspace === "reuse") {
+    if (!captured.environmentId) {
+      throw new TransferError("Source thread has no environment to reuse — pick worktree or personal.");
+    }
+    return { type: "reuse", environmentId: captured.environmentId };
+  }
+  if (plan.workspace === "checkout") {
+    return {
+      type: "host",
+      hostId: plan.hostId,
+      workspace: { type: "unmanaged", path: plan.checkoutPath },
+    };
+  }
+  if (plan.workspace === "worktree") {
+    return {
+      type: "host",
+      hostId: plan.hostId,
+      workspace: {
+        type: "managed-worktree",
+        baseBranch: plan.baseBranch ? { kind: "named", name: plan.baseBranch } : { kind: "default" },
+      },
+    };
+  }
+  return { type: "host", hostId: plan.hostId, workspace: { type: "personal" } };
+}
+
+export interface HandoffResult {
+  newThreadId: string;
+  attachmentPath: string;
+  docBytes: number;
+  briefing: BriefingOutcome;
+  /** Target machine name, when the handoff crossed machines. */
+  targetMachine: string | null;
+  crossMachine: boolean;
+  /** Where the source's uncommitted patch landed on the target machine. */
+  patchPath: string | null;
+  notes: string[];
+}
+
+/**
+ * Source threads with a handoff running right now. Nothing downstream of the
+ * panel's `pending` flag says no to a second run, and that flag is local
+ * component state: it does not survive the panel remounting, a reload, a second
+ * bb window, or a `bb handoff` alongside the UI. A handoff is long (a briefing
+ * turn alone can take 90s) and not idempotent — it steers the source agent and
+ * spawns a thread — so a second click during the first run produced a second
+ * target thread, both seeded from the same session.
+ *
+ * Keyed by source thread, not by target: two concurrent handoffs of one thread
+ * both send it a briefing prompt, and the second's waiter would displace the
+ * first's. Fanning out to several providers is a sequence, not a race.
+ */
+const inFlightHandoffs = new Set<string>();
+
+export async function startHandoff(bb: BbPluginApi, request: HandoffRequest): Promise<HandoffResult> {
+  if (inFlightHandoffs.has(request.sourceThreadId)) {
+    throw new TransferError(
+      "A handoff of this thread is already running — wait for it to finish before starting another.",
+    );
+  }
+  inFlightHandoffs.add(request.sourceThreadId);
+  const publish = (stage: string, extra?: Record<string, unknown>) =>
+    bb.realtime.publish(REALTIME_CHANNEL, { sourceThreadId: request.sourceThreadId, stage, ...extra });
+  try {
+    return await runHandoff(bb, request, publish);
+  } catch (error) {
+    publish("failed", { message: error instanceof Error ? error.message : String(error) });
+    throw error;
+  } finally {
+    inFlightHandoffs.delete(request.sourceThreadId);
+  }
+}
+
+async function runHandoff(
+  bb: BbPluginApi,
+  request: HandoffRequest,
+  publish: (stage: string, extra?: Record<string, unknown>) => void,
+): Promise<HandoffResult> {
+  publish("capturing");
+  const captured = await captureThread(bb, request.sourceThreadId, { untilSeq: request.untilSeq });
+
+  // Decide where this lands before doing any expensive work, so an impossible
+  // transfer fails fast instead of after a briefing round-trip and an upload.
+  const transfer = await planTransfer(bb, {
+    projectId: captured.projectId,
+    sourceHostId: captured.hostId,
+    sourceBranch: captured.branchName,
+    hasEnvironment: captured.environmentId != null,
+    workspace: request.workspace,
+    machine: request.machine,
+  });
+  const environment = resolveEnvironment(transfer, captured);
+
+  // The capture snapshot is taken first, so the briefing exchange below never
+  // appears in the transcript — it travels only as its own document section.
+  let briefing: string | null = null;
+  let briefingOutcome: BriefingOutcome = "off";
+  if (request.briefing) {
+    publish("briefing");
+    const result = await requestBriefing(bb, request.sourceThreadId);
+    briefing = result.text;
+    briefingOutcome = result.outcome;
+  }
+
+  // Only a machine hop strands the working tree: every same-machine mode either
+  // reuses the workspace or sits beside it on the same disk.
+  let working: WorkingState | null = null;
+  let patchPath: string | null = null;
+  if (transfer.crossMachine && captured.environmentId) {
+    publish("working-state");
+    working = await captureWorkingState(bb, captured.environmentId);
+    if (working?.patch && transfer.hostId) {
+      patchPath = await deliverPatch(bb, {
+        hostId: transfer.hostId,
+        sourceThreadId: request.sourceThreadId,
+        patch: working.patch,
+      });
+      if (!patchPath) {
+        transfer.notes.push(
+          `The source workspace has uncommitted changes, but the patch could not be written to ${transfer.hostName ?? "the target machine"}.`,
+        );
+      }
+    }
+  }
+
+  publish("rendering");
+  const sameFamily = request.providerId === captured.providerId;
+  const doc = renderHandoff(captured, new Date(), briefing, {
+    sameFamily,
+    transfer,
+    working,
+    patchPath,
+  });
+  const bytes = new TextEncoder().encode(doc);
+
+  publish("uploading");
+  const uploaded = await bb.sdk.projects.attachments.upload({
+    projectId: captured.projectId,
+    clientFile: bytes,
+    filename: `handoff-${captured.threadId}-${Date.now()}.md`,
+    mimeType: "text/markdown",
+  });
+
+  publish("spawning");
+  const thread = await bb.sdk.threads.spawn({
+    projectId: captured.projectId,
+    providerId: request.providerId,
+    ...(request.model ? { model: request.model } : {}),
+    ...(request.reasoningLevel ? { reasoningLevel: request.reasoningLevel } : {}),
+    environment,
+    title: `${captured.untilSeq != null ? "Handoff from message" : "Handoff"}: ${captured.title}`,
+    input: [
+      {
+        type: "text",
+        text: buildIntroPrompt(captured, request, briefing != null, { transfer, patchPath }),
+        mentions: [],
+      },
+      {
+        type: "localFile",
+        path: uploaded.path,
+        name: uploaded.name,
+        sizeBytes: uploaded.sizeBytes,
+        ...(uploaded.mimeType ? { mimeType: uploaded.mimeType } : {}),
+      },
+    ],
+  });
+
+  const record: HandoffRecord = {
+    sourceThreadId: request.sourceThreadId,
+    sourceProvider: captured.providerId,
+    targetThreadId: thread.id,
+    targetProvider: request.providerId,
+    model: request.model ?? null,
+    reasoningLevel: request.reasoningLevel ?? null,
+    workspace: request.workspace,
+    at: Date.now(),
+    verification: "pending",
+    targetMachine: transfer.crossMachine ? transfer.hostName : null,
+  };
+  const kvKey = `handoff:${record.at}:${thread.id}`;
+  await bb.storage.kv.set(kvKey, record);
+  await pruneHistory(bb);
+  pendingVerifications.set(thread.id, {
+    kvKey,
+    sourceThreadId: request.sourceThreadId,
+    expiresAt: Date.now() + VERIFICATION_TTL_MS,
+  });
+
+  publish("done", { newThreadId: thread.id, targetMachine: record.targetMachine });
+  return {
+    newThreadId: thread.id,
+    attachmentPath: uploaded.path,
+    docBytes: bytes.byteLength,
+    briefing: briefingOutcome,
+    targetMachine: transfer.hostName,
+    crossMachine: transfer.crossMachine,
+    patchPath,
+    notes: transfer.notes,
+  };
+}
+
+/**
+ * Drop the oldest records beyond HISTORY_LIMIT. Keys embed a fixed-width
+ * millisecond timestamp (`handoff:<ms>:<threadId>`), so a lexicographic sort
+ * is chronological.
+ */
+async function pruneHistory(bb: BbPluginApi): Promise<void> {
+  const keys = await bb.storage.kv.list("handoff:");
+  if (keys.length <= HISTORY_LIMIT) return;
+  const excess = [...keys].sort().slice(0, keys.length - HISTORY_LIMIT);
+  for (const key of excess) await bb.storage.kv.delete(key);
+}
+
+export async function listHandoffs(bb: BbPluginApi): Promise<HandoffRecord[]> {
+  const keys = await bb.storage.kv.list("handoff:");
+  const records: HandoffRecord[] = [];
+  for (const key of keys) {
+    const value = await bb.storage.kv.get<HandoffRecord>(key);
+    if (value?.targetThreadId) records.push(value);
+  }
+  records.sort((a, b) => b.at - a.at);
+  return records;
+}

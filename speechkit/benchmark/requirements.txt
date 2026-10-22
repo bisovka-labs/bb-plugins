@@ -1,0 +1,5 @@
+-r ../requirements.txt
+pyarrow
+requests
+jiwer
+mlx-audio @ git+https://github.com/Blaizzy/mlx-audio.git@441d90d77bc2fa1667bc74cae2e434dcf7427424

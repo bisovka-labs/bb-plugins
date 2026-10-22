@@ -1,0 +1,24 @@
+{
+  "name": "bb-plugin-phone-dictation",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "Phone Dictation",
+    "description": "Кнопка Action на iPhone: шорткат записывает голос, плагин расшифровывает его и запускает новую сессию bb с этим текстом.",
+    "branding": {
+      "icon": "Mic"
+    },
+    "server": "./server.ts",
+    "skills": ["skills"]
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/node": "^22.0.0",
+    "hono": "^4.11.9",
+    "typescript": "^5.7.0"
+  }
+}

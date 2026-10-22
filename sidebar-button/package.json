@@ -1,0 +1,42 @@
+{
+  "name": "bb-plugin-sidebar-button",
+  "version": "0.1.0",
+  "type": "module",
+  "author": "Eugene Bisovka",
+  "engines": {
+    "bb": ">=0.46.0",
+    "bbPluginSdk": ">=0.6.37"
+  },
+  "bb": {
+    "name": "Sidebar Button",
+    "description": "On a phone: a sidebar button on the home card and in the thread bar, and swipes on the sidebar's thread rows (right dismisses waiting, left archives).",
+    "branding": {
+      "icon": "./assets/icon.svg"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": []
+  },
+  "scripts": {
+    "build": "bb plugin build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
+    "cron-parser": "^5.5.0",
+    "hono": "^4.11.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

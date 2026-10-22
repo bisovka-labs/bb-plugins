@@ -1,0 +1,346 @@
+{
+  "$schema": "https://getbb.app/schemas/marketplace-v2.schema.json",
+  "schemaVersion": 2,
+  "name": "bisovka",
+  "displayName": "Bisovka Plugins",
+  "description": "Every bb plugin and improvement Eugene Bisovka builds, in one place.",
+  "collections": [
+    {
+      "id": "bisovka",
+      "displayName": "Bisovka Plugins",
+      "pluginIds": [
+        "agent-stats",
+        "blur-titles",
+        "context-folder",
+        "copy-file",
+        "copy-image",
+        "dictation-pause",
+        "handoff",
+        "image-zoom",
+        "openui",
+        "phone-dictation",
+        "recent-threads",
+        "resume-interrupted",
+        "sidebar-button",
+        "sidebar-swipe",
+        "speechkit",
+        "tap-to-dictate",
+        "todo"
+      ]
+    }
+  ],
+  "plugins": [
+    {
+      "id": "agent-stats",
+      "displayName": "Agent Stats",
+      "description": "Shareable story cards with your agent sessions and tokens: BB threads, or every Claude Code and Codex session via CodexBar.",
+      "icon": "ChartColumn",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "agent-stats"
+        }
+      }
+    },
+    {
+      "id": "blur-titles",
+      "displayName": "Blur Titles",
+      "description": "Кнопка в футере сайдбара размывает названия тредов в списке и в шапке, чтобы снять скриншот интерфейса. Повторное нажатие возвращает как было.",
+      "icon": "EyeOff",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "blur-titles"
+        }
+      }
+    },
+    {
+      "id": "context-folder",
+      "displayName": "Context Folder",
+      "description": "Add an extra folder or bb project to a message as agent context from the composer's + menu.",
+      "icon": "FolderPlus",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "context-folder"
+        }
+      }
+    },
+    {
+      "id": "copy-file",
+      "displayName": "Copy File",
+      "description": "Adds a Copy file button to the bb file viewer: the file itself goes to the macOS clipboard, ready to paste into Finder, Telegram or Mail.",
+      "icon": "Copy",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "copy-file"
+        }
+      }
+    },
+    {
+      "id": "copy-image",
+      "displayName": "Copy Image",
+      "description": "Right-click an image in the bb desktop app to copy it.",
+      "icon": "ImageDown",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "copy-image"
+        }
+      }
+    },
+    {
+      "id": "dictation-pause",
+      "displayName": "Dictation Pause",
+      "description": "Ставит музыку на Mac на паузу, пока идёт диктовка в bb, и включает её обратно, когда запись остановлена.",
+      "icon": "Mic",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "dictation-pause"
+        }
+      }
+    },
+    {
+      "id": "handoff",
+      "displayName": "Handoff",
+      "description": "Move a session between agents and machines, in both directions — hand off a bb thread to another provider (and optionally another enrolled machine, carrying uncommitted work), or adopt an outside Claude Code / Codex / Gemini CLI / OpenCode session, local or remote, as a bb thread.",
+      "icon": {
+        "url": "./handoff/assets/icon.svg"
+      },
+      "author": {
+        "name": "Vedran Burojević",
+        "github": "vburojevic",
+        "url": "https://github.com/vburojevic"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "handoff"
+        }
+      }
+    },
+    {
+      "id": "image-zoom",
+      "displayName": "Image Zoom",
+      "description": "Зум и перетаскивание в просмотрщике картинок bb: колесо или щипок — зум к курсору, клик — приблизить или вернуть, тащить — двигать, 0 — сброс, +/- — шаг зума.",
+      "icon": "ZoomIn",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "image-zoom"
+        }
+      }
+    },
+    {
+      "id": "openui",
+      "displayName": "OpenUI",
+      "description": "Render OpenUI Lang generative UI — cards, charts, tables, forms — inline in assistant messages.",
+      "icon": "LayoutDashboard",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "openui"
+        }
+      },
+      "overview": "Let agents answer with live UI instead of walls of text: KPI cards, charts,\ntables, comparison grids, and forms, rendered inline in the chat.\n\n## What you get\n\n- An `::openui{file=\"…\"}` directive that renders an OpenUI Lang file as an interactive card.\n- Buttons and forms that reply to the agent: a click sends the follow-up message\n  with the form values attached.\n- Light and dark themes that follow bb.\n\n## How it works\n\nThe agent writes a small OpenUI Lang program to the workspace or thread storage.\nbb renders it with the open-source OpenUI renderer inside a sandboxed frame that\ncannot reach the bb page, cookies, or storage. Nothing is sent to OpenUI or any\nother service.\n"
+    },
+    {
+      "id": "phone-dictation",
+      "displayName": "Phone Dictation",
+      "description": "Кнопка Action на iPhone: шорткат записывает голос, плагин расшифровывает его и запускает новую сессию bb с этим текстом.",
+      "icon": "Mic",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "phone-dictation"
+        }
+      }
+    },
+    {
+      "id": "recent-threads",
+      "displayName": "Recent Threads",
+      "description": "Кнопка в футере сайдбара переключает список тредов на «Недавние»: только треды с твоими сообщениями за последние 1–24 часа, по проектам.",
+      "icon": "Clock",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "recent-threads"
+        }
+      }
+    },
+    {
+      "id": "resume-interrupted",
+      "displayName": "Resume Interrupted",
+      "description": "После перезапуска BB отправляет «продолжи» тредам, которые прервались из-за рестарта хост-демона.",
+      "icon": "RotateCw",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "resume-interrupted"
+        }
+      }
+    },
+    {
+      "id": "sidebar-button",
+      "displayName": "Sidebar Button",
+      "description": "On a phone: a sidebar button on the home card and in the thread bar, and swipes on the sidebar's thread rows (right dismisses waiting, left archives).",
+      "icon": {
+        "url": "./sidebar-button/assets/icon.svg"
+      },
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "sidebar-button"
+        }
+      }
+    },
+    {
+      "id": "sidebar-swipe",
+      "displayName": "Sidebar Swipe",
+      "description": "На телефоне свайп вправо из левой половины экрана, от самой кромки, открывает список тредов. Лента едет за пальцем и не прокручивается вбок.",
+      "icon": "PanelLeft",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "sidebar-swipe"
+        }
+      }
+    },
+    {
+      "id": "speechkit",
+      "displayName": "Yandex SpeechKit",
+      "description": "Cloud voice input through Yandex SpeechKit API v3. Requires a Yandex API key.",
+      "icon": "Mic",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "speechkit"
+        }
+      }
+    },
+    {
+      "id": "tap-to-dictate",
+      "displayName": "Tap to Dictate",
+      "description": "На телефоне один тап по микрофону запускает диктовку, а по фото открывает выбор изображений. Поле ввода сохраняет фокус и не сворачивается перед действием.",
+      "icon": "Mic",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "tap-to-dictate"
+        }
+      }
+    },
+    {
+      "id": "todo",
+      "displayName": "Todo",
+      "description": "Personal todo list in the sidebar: tasks by project with priorities; agents add them with «поставь в туду».",
+      "icon": "CircleCheck",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "todo"
+        }
+      },
+      "overview": "A personal todo list for work you want to do later, properly, at your\ncomputer.\n\n## What you get\n\n- A **Todo** page in the left sidebar: tasks grouped by project, sorted by\n  priority, with a project filter, quick add, and a collapsed done section.\n- In any thread, say «поставь это в туду» — the agent adds the task with the\n  context you need later and a link back to that thread.\n- A `bb todo` command for the terminal.\n\n## How it works\n\nTasks live in this plugin's SQLite database on the BB server. Nothing leaves\nthe machine.\n"
+    }
+  ]
+}

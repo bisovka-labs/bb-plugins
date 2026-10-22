@@ -1,0 +1,28 @@
+{
+  "name": "bb-plugin-dictation-pause",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.37"
+  },
+  "bb": {
+    "name": "Dictation Pause",
+    "description": "Ставит музыку на Mac на паузу, пока идёт диктовка в bb, и включает её обратно, когда запись остановлена.",
+    "branding": {
+      "icon": "Mic"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": []
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "bb-plugin-sidebar-swipe",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.37"
+  },
+  "bb": {
+    "name": "Sidebar Swipe",
+    "description": "На телефоне свайп вправо из левой половины экрана, от самой кромки, открывает список тредов. Лента едет за пальцем и не прокручивается вбок.",
+    "branding": {
+      "icon": "PanelLeft"
+    },
+    "server": "./server.ts",
+    "app": "./app.ts",
+    "skills": []
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

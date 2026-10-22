@@ -1,0 +1,24 @@
+{
+  "name": "bb-plugin-image-zoom",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.37"
+  },
+  "bb": {
+    "name": "Image Zoom",
+    "description": "Зум и перетаскивание в просмотрщике картинок bb: колесо или щипок — зум к курсору, клик — приблизить или вернуть, тащить — двигать, 0 — сброс, +/- — шаг зума.",
+    "branding": {
+      "icon": "ZoomIn"
+    },
+    "server": "./server.ts",
+    "app": "./app.ts",
+    "skills": []
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

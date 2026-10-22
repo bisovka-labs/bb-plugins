@@ -1,0 +1,75 @@
+{
+  "$schema": "https://getbb.app/schemas/plugins.schema.json",
+  "schemaVersion": 1,
+  "name": "bisovka",
+  "plugins": [
+    {
+      "name": "agent-stats",
+      "source": "./agent-stats"
+    },
+    {
+      "name": "blur-titles",
+      "source": "./blur-titles"
+    },
+    {
+      "name": "context-folder",
+      "source": "./context-folder"
+    },
+    {
+      "name": "copy-file",
+      "source": "./copy-file"
+    },
+    {
+      "name": "copy-image",
+      "source": "./copy-image"
+    },
+    {
+      "name": "dictation-pause",
+      "source": "./dictation-pause"
+    },
+    {
+      "name": "handoff",
+      "source": "./handoff"
+    },
+    {
+      "name": "image-zoom",
+      "source": "./image-zoom"
+    },
+    {
+      "name": "openui",
+      "source": "./openui"
+    },
+    {
+      "name": "phone-dictation",
+      "source": "./phone-dictation"
+    },
+    {
+      "name": "recent-threads",
+      "source": "./recent-threads"
+    },
+    {
+      "name": "resume-interrupted",
+      "source": "./resume-interrupted"
+    },
+    {
+      "name": "sidebar-button",
+      "source": "./sidebar-button"
+    },
+    {
+      "name": "sidebar-swipe",
+      "source": "./sidebar-swipe"
+    },
+    {
+      "name": "speechkit",
+      "source": "./speechkit"
+    },
+    {
+      "name": "tap-to-dictate",
+      "source": "./tap-to-dictate"
+    },
+    {
+      "name": "todo",
+      "source": "./todo"
+    }
+  ]
+}
