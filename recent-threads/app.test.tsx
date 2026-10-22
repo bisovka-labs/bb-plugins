@@ -153,6 +153,22 @@ describe("Recent list", () => {
     expect(within(waiting).queryByText("Alpha")).toBeNull();
   });
 
+  it("focuses one thread and its subagents, then returns to all", async () => {
+    const list = await renderList();
+    const project = screen.getByRole("region", { name: "Alpha" });
+    fireEvent.click(within(project).getAllByRole("button", { name: "Фокус на этом треде" })[1]);
+    expect(list.navigateCalls).toEqual([{ method: "toThread", threadId: "parent", options: undefined }]);
+    expect(screen.queryByRole("region", { name: "Alpha" })).toBeNull();
+    expect(screen.getByText("Фокус")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Показать подагентов: 1" }));
+    expect(rowIds(document.body)).toEqual(["parent", "child"]);
+    expect(localStorage.getItem("recent-threads:focus")).toBe("parent");
+
+    fireEvent.click(screen.getByRole("button", { name: "Все треды" }));
+    expect(screen.getByRole("region", { name: "Alpha" })).toBeTruthy();
+    expect(localStorage.getItem("recent-threads:focus")).toBeNull();
+  });
+
   it("starts a new thread in a project from its header", async () => {
     let navigated = 0;
     const list = await renderList({ onNavigate: () => void navigated++ });

@@ -17,6 +17,11 @@ hours; default 4):
 
 Group headers fold; folded groups still show the open thread.
 
+Focus mode: the focus button on a row (shown on hover, next to Archive)
+opens that thread and hides every other one; only it and its subagents stay
+in the sidebar. «Все треды» at the top, or the same button again, brings the
+full view back. Archiving the focused thread ends focus.
+
 The user switches views with the clock button in the sidebar footer (or the
 More menu), ⌘⇧R, the command palette entry «Список тредов: недавние / все»,
 or «Все» at the top of the Recent view. The toggle writes the server-synced
@@ -29,5 +34,5 @@ bb settings ui set sidebar.threadListProvider recent-threads/recent     # Recent
 bb settings ui set sidebar.threadListProvider thread-list/thread-list   # bb's list
 ```
 
-The window, folded groups and unfolded subagents are per browser
+The window, folded groups, unfolded subagents and the focused thread are per browser
 (localStorage) and change only in the app.

@@ -30,6 +30,7 @@ import {
   byProject,
   containsThread,
   DEFAULT_WINDOW,
+  focusTree,
   isWaiting,
   isWaitingDismissed,
   lastPromptByThread,
@@ -55,6 +56,7 @@ const COLLAPSED_KEY = `${PLUGIN_ID}:collapsed-projects`;
 const EXPANDED_KEY = `${PLUGIN_ID}:expanded-threads`;
 const DRAFTS_KEY = `${PLUGIN_ID}:draft-seen`;
 const WAITING_SORT_KEY = `${PLUGIN_ID}:waiting-by-project`;
+const FOCUS_KEY = `${PLUGIN_ID}:focus`;
 /** bb's own list shows Archive as a row's quick action by default. */
 const ROW_ACTIONS = ["bb--core/archive"];
 /** The collapse key of the "waiting for you" group. */
@@ -287,7 +289,22 @@ interface RowContext {
   providers: readonly Provider[];
   expanded: ReadonlySet<string>;
   toggleExpanded(threadId: string): void;
+  focusedId: string | null;
+  toggleFocus(threadId: string): void;
   onNavigate(): void;
+}
+
+/** Lucide "Focus": a dot in a frame of corners. */
+function FocusIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+    </svg>
+  );
 }
 
 function ThreadRow({
@@ -315,6 +332,7 @@ function ThreadRow({
   const navigate = useBbNavigate();
   const provider = context.providers.find((candidate) => candidate.id === thread.providerId);
   const isActive = thread.id === context.activeThreadId;
+  const isFocused = thread.id === context.focusedId;
   const indicator =
     thread.indicator === "none" && hasUnsubmittedDraft ? "draft" : thread.indicator;
 
@@ -385,6 +403,21 @@ function ThreadRow({
         <span className="pointer-events-none relative shrink-0 pr-1 text-xs tabular-nums text-muted-foreground group-hover/row:hidden group-focus-within/row:hidden">
           {shortcut?.label ?? label}
         </span>
+        <button
+          type="button"
+          aria-pressed={isFocused}
+          aria-label={isFocused ? "Выйти из фокуса" : "Фокус на этом треде"}
+          title={isFocused ? "Выйти из фокуса" : "Фокус: скрыть остальные треды"}
+          onClick={() => context.toggleFocus(thread.id)}
+          className={cn(
+            "relative size-6 shrink-0 items-center justify-center rounded-md outline-none ring-sidebar-ring hover:bg-state-hover focus-visible:flex focus-visible:ring-2 group-hover/row:flex group-focus-within/row:flex",
+            isFocused
+              ? "flex text-sidebar-accent-foreground"
+              : "hidden text-subtle-foreground hover:text-muted-foreground",
+          )}
+        >
+          <FocusIcon className="size-4" />
+        </button>
         {quickActions.map(({ key, action }) => (
           <button
             key={key}
@@ -588,12 +621,58 @@ function RecentList({ activeThreadId, onNavigate }: PluginThreadListProps) {
         : null,
     [threads, lastPrompt, draftSeen, hours, now, projectNames, awaitingReply, keepWaitingId, dismissedWaiting],
   );
-  const context: RowContext = { activeThreadId, now, providers, expanded, toggleExpanded, onNavigate };
+  const [focusedId, setFocusedId] = useState(() => localStorage.getItem(FOCUS_KEY));
+  const focusOn = useCallback((id: string | null) => {
+    if (id) localStorage.setItem(FOCUS_KEY, id);
+    else localStorage.removeItem(FOCUS_KEY);
+    setFocusedId(id);
+  }, []);
+  const toggleFocus = (id: string) => {
+    if (focusedId === id) return focusOn(null);
+    focusOn(id);
+    if (id !== activeThreadId) {
+      onNavigate();
+      navigate.toThread(id);
+    }
+  };
+  const focused = useMemo(
+    () => (focusedId && status === "ready" ? focusTree(threads, focusedId, lastPrompt ?? new Map()) : null),
+    [focusedId, status, threads, lastPrompt],
+  );
+  // Archiving or deleting the focused thread ends focus.
+  useEffect(() => {
+    if (focusedId && status === "ready" && !focused) focusOn(null);
+  }, [focusedId, status, focused, focusOn]);
+  const context: RowContext = {
+    activeThreadId, now, providers, expanded, toggleExpanded, focusedId, toggleFocus, onNavigate,
+  };
   const promptLabel = (node: RecentNode<PluginSidebarThread>) =>
     node.promptAt !== null ? ago(node.promptAt, now) : node.draftOnly ? "черновик" : "";
   const attentionLabel = (node: RecentNode<PluginSidebarThread>) => ago(node.thread.latestAttentionAt, now);
   const activityLabel = (node: RecentNode<PluginSidebarThread>) => ago(node.thread.updatedAt, now);
   const loading = view === null || status === "loading";
+
+  if (focused)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="sticky top-0 z-10 flex items-center gap-1 bg-sidebar px-2 pb-2 pt-1">
+          <span className="flex h-6 min-w-0 items-center gap-1 px-1.5 text-xs font-medium text-sidebar-foreground">
+            <FocusIcon className="size-3.5 shrink-0" />
+            <span className="truncate">Фокус</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => focusOn(null)}
+            className="ml-auto flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 text-xs text-muted-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2"
+          >
+            Все треды
+          </button>
+        </div>
+        <div className="space-y-0.5 px-2 pb-2">
+          <ThreadTree node={focused} depth={0} label={activityLabel} context={context} />
+        </div>
+      </div>
+    );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

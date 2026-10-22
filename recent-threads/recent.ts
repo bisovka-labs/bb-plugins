@@ -296,6 +296,29 @@ export function byProject<T extends { projectId: string }>(
   return [...groups.entries()].map(([projectId, threads]) => ({ projectId, threads }));
 }
 
+/**
+ * Focus mode: the one thread and every active subagent under it, newest first.
+ * Null when the thread is gone, archived or hidden, so focus ends by itself.
+ */
+export function focusTree<T extends ViewThread>(
+  threads: readonly T[],
+  id: string,
+  lastPrompt: ReadonlyMap<string, number>,
+): RecentNode<T> | null {
+  const live = threads.filter((thread) => !thread.isArchived && !thread.isHidden);
+  const build = (thread: T): RecentNode<T> => ({
+    thread,
+    promptAt: lastPrompt.get(thread.id) ?? null,
+    draftOnly: false,
+    children: live
+      .filter((child) => child.parentThreadId === thread.id)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map(build),
+  });
+  const root = live.find((thread) => thread.id === id);
+  return root ? build(root) : null;
+}
+
 /** Whether `id` is this node or one of its descendants. */
 export function containsThread<T extends { id: string }>(node: RecentNode<T>, id: string | null): boolean {
   if (id === null) return false;

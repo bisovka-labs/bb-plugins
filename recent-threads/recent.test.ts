@@ -4,6 +4,7 @@ import {
   BUILTIN_LIST,
   byProject,
   containsThread,
+  focusTree,
   lastPromptByThread,
   mergePrompts,
   recentView,
@@ -250,6 +251,29 @@ describe("recentView", () => {
     ).groups[0].threads;
     expect(containsThread(node, "child")).toBe(true);
     expect(containsThread(node, "other")).toBe(false);
+  });
+});
+
+describe("focusTree", () => {
+  const ids = (node: RecentNode<ViewThread>): unknown => [node.thread.id, node.children.map(ids)];
+
+  it("keeps the thread with its live subagents, newest first", () => {
+    const threads = [
+      thread("root", "p"),
+      thread("old-kid", "p", { parentThreadId: "root", updatedAt: now - 2 * HOUR }),
+      thread("new-kid", "p", { parentThreadId: "root", updatedAt: now - HOUR }),
+      thread("grandkid", "p", { parentThreadId: "old-kid" }),
+      thread("gone-kid", "p", { parentThreadId: "root", isArchived: true }),
+      thread("other", "p"),
+    ];
+    const node = focusTree(threads, "root", new Map([["root", now]]));
+    expect(node && ids(node)).toEqual(["root", [["new-kid", []], ["old-kid", [["grandkid", []]]]]]);
+    expect(node?.promptAt).toBe(now);
+  });
+
+  it("is null once the thread is archived or gone", () => {
+    expect(focusTree([thread("root", "p", { isArchived: true })], "root", new Map())).toBeNull();
+    expect(focusTree([thread("root", "p")], "missing", new Map())).toBeNull();
   });
 });
 
