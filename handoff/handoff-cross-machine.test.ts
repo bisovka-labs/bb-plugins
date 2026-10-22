@@ -179,7 +179,7 @@ describe("startHandoff across machines", () => {
       machine: "mini",
     });
 
-    expect(result.patchPath).toBe("/tmp/bb-handoff-thr_src.patch");
+    expect(result.patchPath).toMatch(/^\/tmp\/bb-handoff-[0-9a-f-]{36}\.patch$/);
     const write = calls.find((call) => call.method === "files.write")!.args as {
       hostId: string;
       path: string;
@@ -191,13 +191,13 @@ describe("startHandoff across machines", () => {
 
     const doc = uploadedDoc(calls);
     expect(doc).toContain("Working state on Vedrans-MacBook-Pro");
-    expect(doc).toContain("git apply --3way /tmp/bb-handoff-thr_src.patch");
+    expect(doc).toContain(`git apply --3way ${result.patchPath}`);
     expect(doc).toContain("NOT present in your workspace");
 
     const spawn = calls.find((call) => call.method === "threads.spawn")!.args as {
       input: { text?: string }[];
     };
-    expect(spawn.input[0]!.text).toContain("/tmp/bb-handoff-thr_src.patch");
+    expect(spawn.input[0]!.text).toContain(result.patchPath);
   });
 
   it("says the changes were stranded when the patch cannot be delivered", async () => {

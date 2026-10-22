@@ -2,6 +2,7 @@
 // so moving a session to another one is three decisions: which host, which
 // workspace on that host, and what working state has to travel alongside the
 // transcript because the git remote does not carry it.
+import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@bb/plugin-sdk";
 
 export type WorkspaceMode = "reuse" | "checkout" | "worktree" | "personal";
@@ -369,13 +370,14 @@ export async function deliverPatch(
   bb: BbPluginApi,
   options: { hostId: string; sourceThreadId: string; patch: string },
 ): Promise<string | null> {
-  const path = `/tmp/bb-handoff-${options.sourceThreadId}.patch`;
+  const path = `/tmp/bb-handoff-${randomUUID()}.patch`;
   try {
     const written = await bb.sdk.files.write({
       hostId: options.hostId,
       path,
       content: options.patch,
-      createParents: true,
+      mode: 0o600,
+      expectedSha256: null,
     });
     return written.outcome === "written" ? path : null;
   } catch {

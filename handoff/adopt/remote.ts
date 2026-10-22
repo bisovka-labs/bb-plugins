@@ -7,6 +7,7 @@
 // stores that are addressable by path (Claude, Gemini), greps Codex rollouts
 // for the working directory, and queries OpenCode's SQLite — all writing one
 // TSV stream that the file API reads back.
+import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@bb/plugin-sdk";
 import { claudeProjectSlug } from "../capture";
 import { parseClaudeContent } from "./agents/claude";
@@ -41,7 +42,6 @@ export function shellQuote(value: string): string {
 
 const EXEC_TIMEOUT_MS = 30_000;
 const EXEC_POLL_MS = 150;
-let execCounter = 0;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -61,9 +61,9 @@ export async function hostExec(
   script: string,
   options: { timeoutMs?: number } = {},
 ): Promise<string | null> {
-  execCounter += 1;
-  const out = `/tmp/bb-handoff-remote-${Date.now()}-${execCounter}.out`;
-  const command = `{ ${script} ; } > ${shellQuote(`${out}.part`)} 2>/dev/null; mv ${shellQuote(`${out}.part`)} ${shellQuote(out)}`;
+  const directory = `/tmp/bb-handoff-remote-${randomUUID()}`;
+  const out = `${directory}/output`;
+  const command = `umask 077; mkdir -m 700 ${shellQuote(directory)} || exit 1; { ${script} ; } > ${shellQuote(`${out}.part`)} 2>/dev/null; mv ${shellQuote(`${out}.part`)} ${shellQuote(out)}`;
   let terminalId: string | null = null;
   try {
     const terminal = await bb.sdk.terminals.create({
@@ -91,10 +91,7 @@ export async function hostExec(
     if (terminalId) {
       await bb.sdk.terminals.close({ terminalId, mode: "force" }).catch(() => {});
     }
-    // On a timeout the redirect never got moved into place, so the `.part`
-    // file is the one that would otherwise be left behind.
-    await bb.sdk.files.remove({ hostId, path: out }).catch(() => {});
-    await bb.sdk.files.remove({ hostId, path: `${out}.part` }).catch(() => {});
+    await bb.sdk.files.remove({ hostId, path: directory, recursive: true }).catch(() => {});
   }
 }
 
