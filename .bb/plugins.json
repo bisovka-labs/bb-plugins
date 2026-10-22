@@ -60,10 +60,6 @@
       "source": "./sidebar-swipe"
     },
     {
-      "name": "speechkit",
-      "source": "./speechkit"
-    },
-    {
       "name": "tap-to-dictate",
       "source": "./tap-to-dictate"
     },

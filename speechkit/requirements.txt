@@ -1,2 +1,0 @@
-yandexcloud==0.411.0
-grpcio>=1.60,<2

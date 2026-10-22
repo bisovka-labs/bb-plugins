@@ -39,7 +39,6 @@ scripts/install.sh todo openui  # only these
 | `resume-interrupted` | Sends «продолжи» to threads a bb restart interrupted. |
 | `sidebar-button` | Phone: sidebar button and swipes on thread rows. |
 | `sidebar-swipe` | Phone: edge swipe opens the thread list. |
-| `speechkit` | Voice input through Yandex SpeechKit (needs a Yandex API key). |
 | `tap-to-dictate` | Phone: one tap on the mic starts dictation. |
 | `todo` | Personal todo list in the sidebar that agents can add to. |
 

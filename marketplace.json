@@ -23,7 +23,6 @@
         "resume-interrupted",
         "sidebar-button",
         "sidebar-swipe",
-        "speechkit",
         "tap-to-dictate",
         "todo"
       ]
@@ -284,24 +283,6 @@
           "url": "https://github.com/bisovka-labs/bb-plugins.git",
           "ref": "main",
           "subdir": "sidebar-swipe"
-        }
-      }
-    },
-    {
-      "id": "speechkit",
-      "displayName": "Yandex SpeechKit",
-      "description": "Cloud voice input through Yandex SpeechKit API v3. Requires a Yandex API key.",
-      "icon": "Mic",
-      "author": {
-        "name": "Eugene Bisovka",
-        "github": "bisovka-labs",
-        "url": "https://github.com/bisovka-labs"
-      },
-      "source": {
-        "git": {
-          "url": "https://github.com/bisovka-labs/bb-plugins.git",
-          "ref": "main",
-          "subdir": "speechkit"
         }
       }
     },
