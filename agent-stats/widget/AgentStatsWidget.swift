@@ -43,6 +43,8 @@ final class Widget: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
     set { defaults.set(newValue, forKey: "animated") }
   }
   var onTop: Bool { get { defaults.bool(forKey: "onTop") } set { defaults.set(newValue, forKey: "onTop") } }
+  /** How to call bb; another Mac can read its bb server's stats with e.g. `ssh <host> /path/to/bb`. */
+  var cli: String { defaults.string(forKey: "cli") ?? "bb" }
 
   var pixelSize: NSSize { SIZES.first { $0.0 == size }?.2 ?? SIZES[1].2 }
 
@@ -117,7 +119,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigat
     let current = generation
     push(#"{"loading":true}"#)
     let range = period == "24h" ? "--hours 24" : "--days \(period)"
-    let command = "bb agent-stats show --json --source \(source) \(range)"
+    let command = "\(cli) agent-stats show --json --source \(source) \(range)"
     DispatchQueue.global(qos: .utility).async { [self] in
       let result = run(command)
       DispatchQueue.main.async { [self] in
