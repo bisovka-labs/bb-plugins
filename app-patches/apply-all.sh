@@ -10,12 +10,17 @@ VERSION=$(defaults read "$PLIST" CFBundleShortVersionString 2>/dev/null)
 sleep 20  # let an in-progress update finish writing the bundle
 echo "$(date) bb $VERSION"
 r=0
+reload=
 for p in *.py; do
   [ "$p" = cache-bust.py ] && continue
   out=$(python3 "$p" 2>&1); c=$?
   echo "  $p: $(echo "$out" | tail -1)"
+  case "$out" in *"patched /"*"/app/dist/"*) reload=1 ;; esac
   case "$out" in *"already patched"*) ;; *) [ $c -eq 0 ] || r=$c ;; esac
 done
 python3 cache-bust.py || r=$?
+# bb relaunches after an update before the patches land, so open windows keep
+# the unpatched renderer until reloaded.
+[ -n "$reload" ] && osascript -e 'display notification "Патчи применены — нажми ⌘R в окне bb" with title "bb '"$VERSION"'"'
 [ $r -eq 0 ] && echo "$VERSION" > .applied-version
 exit $r
