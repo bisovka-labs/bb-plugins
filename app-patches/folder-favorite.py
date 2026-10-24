@@ -5,7 +5,7 @@ Minified names are captured by regex so the patch survives most BB updates;
 if an assertion fails, the bundle changed shape and the patterns need updating."""
 import glob, os, re, shutil, subprocess, sys
 D = '/Applications/bb.app/Contents/Resources/app.asar.unpacked/node_modules/bb-app/app/dist/assets'
-F = [f for f in glob.glob(D + '/index-*.js') if 'Browse to the project folder' in open(f).read()]
+F = [f for f in glob.glob(D + '/*.js') if '`Edit path`' in open(f).read() and 'allowCreateFolder' in open(f).read()]
 assert len(F) == 1, F
 F = F[0]
 s = open(F).read()
@@ -24,7 +24,9 @@ head = one(r'function \w+\(\{hostId:(\w+),initialPath:(\w+)=null,allowCreateFold
            r'onDirectoryChange:\w+,disabled:\w+=!1\}\)\{let\[(\w+),(\w+)\]=\(0,(\w+)\.useState\)\(\2\),', s)
 host, init, react = head.group(1), head.group(2), head.group(5)
 start = head.start()
-end = s.index('function ', head.end())
+end = s.find('function ', head.end())
+if end < 0:  # last function in its chunk
+    end = len(s)
 body = s[start:end]
 
 dir_var = one(r',(\w+)=\w+\?\.directory\?\?null,', body).group(1)
