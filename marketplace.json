@@ -12,6 +12,7 @@
         "agent-stats",
         "blur-titles",
         "context-folder",
+        "copy-code",
         "copy-file",
         "copy-image",
         "dictation-pause",
@@ -80,6 +81,24 @@
           "url": "https://github.com/bisovka-labs/bb-plugins.git",
           "ref": "main",
           "subdir": "context-folder"
+        }
+      }
+    },
+    {
+      "id": "copy-code",
+      "displayName": "Copy Code",
+      "description": "Tap any inline code in a bb chat message (a link, a command, a path) to copy it to the clipboard.",
+      "icon": "ClipboardCopy",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "copy-code"
         }
       }
     },

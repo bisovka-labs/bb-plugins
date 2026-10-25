@@ -1,0 +1,24 @@
+{
+  "name": "bb-plugin-copy-code",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.37"
+  },
+  "bb": {
+    "name": "Copy Code",
+    "description": "Tap any inline code in a bb chat message (a link, a command, a path) to copy it to the clipboard.",
+    "branding": {
+      "icon": "ClipboardCopy"
+    },
+    "server": "./server.ts",
+    "app": "./app.ts",
+    "skills": []
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
