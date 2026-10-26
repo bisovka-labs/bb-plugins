@@ -56,6 +56,10 @@
       "source": "./resume-interrupted"
     },
     {
+      "name": "safari",
+      "source": "./safari"
+    },
+    {
       "name": "sidebar-button",
       "source": "./sidebar-button"
     },

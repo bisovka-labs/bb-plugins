@@ -1,0 +1,25 @@
+{
+  "name": "bb-plugin-safari",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.47",
+    "bbPluginSdk": ">=0.6.79"
+  },
+  "bb": {
+    "name": "Safari",
+    "description": "Agents drive your real Safari on the Mac: tabs, pages, clicks, forms, JavaScript, and screenshots.",
+    "branding": {
+      "icon": "Compass"
+    },
+    "server": "./server.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.79",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

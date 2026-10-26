@@ -37,6 +37,7 @@ scripts/install.sh todo openui  # only these
 | `phone-dictation` | iPhone Action button starts a bb thread from speech. |
 | `recent-threads` | Sidebar view of threads you wrote in during the last hours. |
 | `resume-interrupted` | Sends «продолжи» to threads a bb restart interrupted. |
+| `safari` | Agents drive your real Safari: tabs, reading, clicks, forms, screenshots. |
 | `sidebar-button` | Phone: sidebar button and swipes on thread rows. |
 | `sidebar-swipe` | Phone: edge swipe opens the thread list. |
 | `tap-to-dictate` | Phone: one tap on the mic starts dictation. |

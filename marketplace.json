@@ -22,6 +22,7 @@
         "phone-dictation",
         "recent-threads",
         "resume-interrupted",
+        "safari",
         "sidebar-button",
         "sidebar-swipe",
         "tap-to-dictate",
@@ -266,6 +267,25 @@
           "subdir": "resume-interrupted"
         }
       }
+    },
+    {
+      "id": "safari",
+      "displayName": "Safari",
+      "description": "Agents drive your real Safari on the Mac: tabs, pages, clicks, forms, JavaScript, and screenshots.",
+      "icon": "Compass",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "safari"
+        }
+      },
+      "overview": "Let your agents use Safari: the real one, with your tabs and logins.\n\n## What you get\n\n- Agents list your tabs, open pages in new tabs, read text or HTML, click\n  links and buttons, fill forms, run JavaScript, and take screenshots.\n- A `bb safari` command for the terminal.\n\n## Setup\n\nAllow bb to control Safari when macOS asks. To let agents click and type,\nturn on Safari → Settings → Developer → «Allow JavaScript from Apple\nEvents» (enable «Show features for web developers» under Advanced first).\n\nEverything runs locally through AppleScript; nothing leaves the Mac.\n"
     },
     {
       "id": "sidebar-button",
