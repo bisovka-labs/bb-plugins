@@ -29,18 +29,23 @@ import {
   ago,
   byProject,
   containsThread,
+  countdown,
   DEFAULT_WINDOW,
   focusTree,
   isWaiting,
   isWaitingDismissed,
   lastPromptByThread,
   mergePrompts,
+  parseProjectFocus,
+  POMODORO_MS,
+  projectView,
   PROVIDER_PREF,
   recentView,
   toggledProvider,
   trackAwaitingReply,
   trackDrafts,
   WINDOWS,
+  type ProjectFocus,
   type PromptEntry,
   type RecentNode,
   type WindowHours,
@@ -57,6 +62,7 @@ const EXPANDED_KEY = `${PLUGIN_ID}:expanded-threads`;
 const DRAFTS_KEY = `${PLUGIN_ID}:draft-seen`;
 const WAITING_SORT_KEY = `${PLUGIN_ID}:waiting-by-project`;
 const FOCUS_KEY = `${PLUGIN_ID}:focus`;
+const PROJECT_FOCUS_KEY = `${PLUGIN_ID}:project-focus`;
 /** bb's own list shows Archive as a row's quick action by default. */
 const ROW_ACTIONS = ["bb--core/archive"];
 /** The collapse key of the "waiting for you" group. */
@@ -78,6 +84,12 @@ function SdkBridge() {
 /** Switches the sidebar between the Recent list and the list shown before it. */
 async function toggleList(sdk: PluginBrowserBbSdk | null = appSdk) {
   if (!sdk) return;
+  // A running pomodoro keeps the sidebar on its project.
+  const pomodoro = parseProjectFocus(localStorage.getItem(PROJECT_FOCUS_KEY));
+  if (pomodoro && pomodoro.endsAt > Date.now()) {
+    toast("Фокус на проекте", { description: `Ещё ${countdown(pomodoro.endsAt - Date.now())} до конца помодоро.` });
+    return;
+  }
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
       const { preferences } = await sdk.system.uiPreferences.list();
@@ -182,6 +194,29 @@ function useNow() {
     return () => clearInterval(timer);
   }, []);
   return now;
+}
+
+/** The clock each second while `active`, for the pomodoro countdown. */
+function useSecondTick(active: boolean) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, [active]);
+  return now;
+}
+
+/** The pomodoro on one project, kept in this browser. */
+function useProjectFocus() {
+  const [focus, setFocus] = useState(() => parseProjectFocus(localStorage.getItem(PROJECT_FOCUS_KEY)));
+  const save = useCallback((next: ProjectFocus | null) => {
+    if (next) localStorage.setItem(PROJECT_FOCUS_KEY, JSON.stringify(next));
+    else localStorage.removeItem(PROJECT_FOCUS_KEY);
+    setFocus(next);
+  }, []);
+  return [focus, save] as const;
 }
 
 /**
@@ -304,6 +339,50 @@ function FocusIcon({ className }: { className?: string }) {
       <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
       <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
     </svg>
+  );
+}
+
+/** New-thread and focus buttons on a project label, shown on hover of `group`. */
+function ProjectButtons({
+  name,
+  onNewThread,
+  onFocus,
+  hoverGroup,
+}: {
+  name: string;
+  onNewThread?: () => void;
+  onFocus?: () => void;
+  hoverGroup: "group" | "section";
+}) {
+  const className = cn(
+    "flex size-6 shrink-0 items-center justify-center rounded-md text-subtle-foreground opacity-0 outline-none ring-sidebar-ring hover:bg-state-hover hover:text-muted-foreground focus-visible:opacity-100 focus-visible:ring-2 max-md:pointer-coarse:opacity-100",
+    hoverGroup === "group" ? "group-hover/group:opacity-100" : "group-hover/section:opacity-100",
+  );
+  return (
+    <>
+      {onFocus && (
+        <button
+          type="button"
+          aria-label={`Фокус на ${name}`}
+          title={`Фокус на ${name}: помодоро 30 мин`}
+          onClick={onFocus}
+          className={className}
+        >
+          <FocusIcon className="size-4" />
+        </button>
+      )}
+      {onNewThread && (
+        <button
+          type="button"
+          aria-label={`Новый тред в ${name}`}
+          title={`Новый тред в ${name}`}
+          onClick={onNewThread}
+          className={className}
+        >
+          <Icon name="MessageSquarePlus" className="size-4" aria-hidden />
+        </button>
+      )}
+    </>
   );
 }
 
@@ -493,6 +572,7 @@ function Group({
   isCollapsed,
   onToggle,
   onNewThread,
+  onFocus,
   actions,
   nodes,
   sections,
@@ -506,11 +586,19 @@ function Group({
   onToggle(): void;
   /** Starts a new thread in the group's project; the waiting group has none. */
   onNewThread?: () => void;
+  /** Starts a pomodoro focus on the group's project. */
+  onFocus?: () => void;
   /** Extra buttons on the right of the header, shown on hover. */
   actions?: ReactNode;
   nodes: RecentNode<PluginSidebarThread>[];
   /** Splits the nodes under sub-labels: the waiting group by project. */
-  sections?: { key: string; name: string; nodes: RecentNode<PluginSidebarThread>[] }[];
+  sections?: {
+    key: string;
+    name: string;
+    nodes: RecentNode<PluginSidebarThread>[];
+    onNewThread?: () => void;
+    onFocus?: () => void;
+  }[];
   label: (node: RecentNode<PluginSidebarThread>) => string;
   context: RowContext;
 }) {
@@ -547,17 +635,7 @@ function Group({
             />
           </span>
         </button>
-        {onNewThread && (
-          <button
-            type="button"
-            aria-label={`Новый тред в ${name}`}
-            title={`Новый тред в ${name}`}
-            onClick={onNewThread}
-            className="flex size-6 shrink-0 items-center justify-center rounded-md text-subtle-foreground opacity-0 outline-none ring-sidebar-ring hover:bg-state-hover hover:text-muted-foreground focus-visible:opacity-100 focus-visible:ring-2 group-hover/group:opacity-100 max-md:pointer-coarse:opacity-100"
-          >
-            <Icon name="MessageSquarePlus" className="size-4" aria-hidden />
-          </button>
-        )}
+        <ProjectButtons name={name} onNewThread={onNewThread} onFocus={onFocus} hoverGroup="group" />
         {actions}
       </div>
       {visible.length > 0 &&
@@ -567,7 +645,17 @@ function Group({
             return (
               shown.length > 0 && (
                 <div key={section.key} className="mt-1 first:mt-0">
-                  <div className="truncate pl-2 text-[11px] leading-5 text-subtle-foreground">{section.name}</div>
+                  <div className="group/section flex items-center">
+                    <div className="min-w-0 flex-1 truncate pl-2 text-[11px] leading-5 text-subtle-foreground">
+                      {section.name}
+                    </div>
+                    <ProjectButtons
+                      name={section.name}
+                      onNewThread={section.onNewThread}
+                      onFocus={section.onFocus}
+                      hoverGroup="section"
+                    />
+                  </div>
                   <div className="space-y-0.5">{rows(shown)}</div>
                 </div>
               )
@@ -578,6 +666,11 @@ function Group({
         ))}
     </section>
   );
+}
+
+/** A thin rule under "Ждут тебя". */
+function Divider() {
+  return <div role="separator" className="mx-2 h-px shrink-0 bg-sidebar-border" />;
 }
 
 function RecentList({ activeThreadId, onNavigate }: PluginThreadListProps) {
@@ -643,6 +736,39 @@ function RecentList({ activeThreadId, onNavigate }: PluginThreadListProps) {
   useEffect(() => {
     if (focusedId && status === "ready" && !focused) focusOn(null);
   }, [focusedId, status, focused, focusOn]);
+  const [pomodoro, setPomodoro] = useProjectFocus();
+  // The view of the project in focus opens with its stale threads unfolded.
+  const [focusStaleOpen, setFocusStaleOpen] = useState(true);
+  const tick = useSecondTick(pomodoro !== null);
+  const remaining = pomodoro ? pomodoro.endsAt - tick : 0;
+  const pomodoroDone = pomodoro !== null && remaining <= 0;
+  const announcedEnd = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pomodoro || !pomodoroDone || announcedEnd.current === pomodoro.endsAt) return;
+    announcedEnd.current = pomodoro.endsAt;
+    // A pomodoro that ended while bb was closed is not announced.
+    if (Date.now() - pomodoro.endsAt < 60_000)
+      toast.success("Помодоро закончился", { description: "Можно выйти из фокуса или взять ещё 30 минут." });
+  }, [pomodoro, pomodoroDone]);
+  const startPomodoro = (projectId: string) => {
+    const previous = pomodoro;
+    const next = { projectId, endsAt: Date.now() + POMODORO_MS };
+    setPomodoro(next);
+    setFocusStaleOpen(true);
+    // A misclick can be taken back while the toast is up; after that, exit waits for the timer.
+    toast.success(`Фокус на ${projectNames.get(projectId) ?? projectId}: 30 минут`, {
+      action: {
+        label: "Отменить",
+        onClick: () => {
+          if (parseProjectFocus(localStorage.getItem(PROJECT_FOCUS_KEY))?.endsAt === next.endsAt) setPomodoro(previous);
+        },
+      },
+    });
+  };
+  const newThreadIn = (projectId: string) => () => {
+    onNavigate();
+    navigate.toCompose({ projectId, focusPrompt: true });
+  };
   const context: RowContext = {
     activeThreadId, now, providers, expanded, toggleExpanded, focusedId, toggleFocus, onNavigate,
   };
@@ -650,6 +776,9 @@ function RecentList({ activeThreadId, onNavigate }: PluginThreadListProps) {
     node.promptAt !== null ? ago(node.promptAt, now) : node.draftOnly ? "черновик" : "";
   const attentionLabel = (node: RecentNode<PluginSidebarThread>) => ago(node.thread.latestAttentionAt, now);
   const activityLabel = (node: RecentNode<PluginSidebarThread>) => ago(node.thread.updatedAt, now);
+  // A project in focus also lists sessions outside the window, by their last activity.
+  const sessionLabel = (node: RecentNode<PluginSidebarThread>) =>
+    node.promptAt === null && !node.draftOnly ? activityLabel(node) : promptLabel(node);
   const loading = view === null || status === "loading";
 
   if (focused)
@@ -673,6 +802,105 @@ function RecentList({ activeThreadId, onNavigate }: PluginThreadListProps) {
         </div>
       </div>
     );
+
+  if (pomodoro) {
+    const name = projectNames.get(pomodoro.projectId) ?? pomodoro.projectId;
+    const project = view ? projectView(view, pomodoro.projectId) : null;
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="sticky top-0 z-10 flex items-center gap-1 bg-sidebar px-2 pb-2 pt-1">
+          <span className="flex h-6 min-w-0 items-center gap-1 px-1.5 text-xs font-medium text-sidebar-foreground">
+            <FocusIcon className="size-3.5 shrink-0" />
+            <span className="truncate">{name}</span>
+          </span>
+          <span
+            role="timer"
+            aria-label={pomodoroDone ? "Помодоро закончился" : `До конца помодоро ${countdown(remaining)}`}
+            className={cn(
+              "shrink-0 px-1 text-xs tabular-nums",
+              pomodoroDone ? "text-sidebar-accent-foreground" : "text-muted-foreground",
+            )}
+          >
+            {pomodoroDone ? "готово" : countdown(remaining)}
+          </span>
+          <button
+            type="button"
+            aria-label={`Новый тред в ${name}`}
+            title={`Новый тред в ${name}`}
+            onClick={newThreadIn(pomodoro.projectId)}
+            className="ml-auto flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2"
+          >
+            <Icon name="MessageSquarePlus" className="size-4" aria-hidden />
+          </button>
+          {pomodoroDone && (
+            <button
+              type="button"
+              onClick={() => startPomodoro(pomodoro.projectId)}
+              className="flex h-6 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 text-xs text-muted-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2"
+            >
+              +30 мин
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={!pomodoroDone}
+            onClick={() => setPomodoro(null)}
+            title={pomodoroDone ? "Вернуться ко всем проектам" : "Выйти можно, когда закончится помодоро"}
+            className="flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 text-xs text-muted-foreground ring-sidebar-ring enabled:hover:bg-sidebar-accent enabled:hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
+          >
+            {!pomodoroDone && <Icon name="Lock" className="size-3 shrink-0" aria-hidden />}
+            Выйти
+          </button>
+        </div>
+        {error ? (
+          <p role="alert" className="px-3 py-2 text-xs text-destructive">
+            История промптов не загрузилась: {error}
+          </p>
+        ) : loading || !project ? (
+          <p className="px-3 py-2 text-xs text-muted-foreground">Загружаю…</p>
+        ) : (
+          <div className="flex flex-col gap-3 px-2 pb-2">
+            {project.waiting.length + project.threads.length + project.stale.length === 0 && (
+              <p className="px-1 py-2 text-xs text-muted-foreground">В проекте нет активных тредов.</p>
+            )}
+            {project.waiting.length > 0 && (
+              <Group
+                name="Ждут тебя"
+                isCollapsed={collapsed.has(WAITING_GROUP)}
+                onToggle={() => toggleCollapsed(WAITING_GROUP)}
+                nodes={project.waiting}
+                label={attentionLabel}
+                context={context}
+              />
+            )}
+            {project.waiting.length > 0 && project.threads.length + project.stale.length > 0 && <Divider />}
+            {project.threads.length > 0 && (
+              <Group
+                name="Сессии"
+                count={project.threads.length}
+                isCollapsed={collapsed.has(pomodoro.projectId)}
+                onToggle={() => toggleCollapsed(pomodoro.projectId)}
+                nodes={project.threads}
+                label={sessionLabel}
+                context={context}
+              />
+            )}
+            {project.stale.length > 0 && (
+              <Group
+                name="Висят"
+                count={project.stale.length}
+                isCollapsed={!focusStaleOpen}
+                onToggle={() => setFocusStaleOpen((open) => !open)}
+                nodes={project.stale}
+                label={activityLabel}
+                context={context}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -760,6 +988,8 @@ function RecentList({ activeThreadId, onNavigate }: PluginThreadListProps) {
                       key: projectId,
                       name: projectNames.get(projectId) ?? projectId,
                       nodes: threads,
+                      onNewThread: newThreadIn(projectId),
+                      onFocus: () => startPomodoro(projectId),
                     }))
                   : undefined
               }
@@ -767,16 +997,15 @@ function RecentList({ activeThreadId, onNavigate }: PluginThreadListProps) {
               context={context}
             />
           )}
+          {view.waiting.length > 0 && (view.groups.length > 0 || view.stale.length > 0) && <Divider />}
           {view.groups.map((group) => (
             <Group
               key={group.projectId}
               name={projectNames.get(group.projectId) ?? group.projectId}
               isCollapsed={collapsed.has(group.projectId)}
               onToggle={() => toggleCollapsed(group.projectId)}
-              onNewThread={() => {
-                onNavigate();
-                navigate.toCompose({ projectId: group.projectId, focusPrompt: true });
-              }}
+              onNewThread={newThreadIn(group.projectId)}
+              onFocus={() => startPomodoro(group.projectId)}
               nodes={group.threads}
               label={promptLabel}
               context={context}

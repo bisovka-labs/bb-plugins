@@ -22,6 +22,14 @@ opens that thread and hides every other one; only it and its subagents stay
 in the sidebar. «Все треды» at the top, or the same button again, brings the
 full view back. Archiving the focused thread ends focus.
 
+Project focus (pomodoro): the focus button on a project header (also on the
+project sections of «Ждут тебя» when it is split by project) starts a
+30-minute pomodoro on that project. The sidebar then shows only that project:
+its waiting threads, «Сессии» (every other active thread of the project,
+inside the window or not) and «Висят». «Выйти» and the Recent/All toggle stay
+locked until the timer ends; the start toast has «Отменить» for misclicks.
+When it ends: «+30 мин» or «Выйти». A rule separates «Ждут тебя» from the rest.
+
 The user switches views with the clock button in the sidebar footer (or the
 More menu), ⌘⇧R, the command palette entry «Список тредов: недавние / все»,
 or «Все» at the top of the Recent view. The toggle writes the server-synced
@@ -34,5 +42,5 @@ bb settings ui set sidebar.threadListProvider recent-threads/recent     # Recent
 bb settings ui set sidebar.threadListProvider thread-list/thread-list   # bb's list
 ```
 
-The window, folded groups, unfolded subagents and the focused thread are per browser
+The window, folded groups, unfolded subagents, the focused thread and the pomodoro are per browser
 (localStorage) and change only in the app.

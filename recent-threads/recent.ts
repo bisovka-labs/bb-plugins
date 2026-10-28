@@ -139,6 +139,8 @@ export interface RecentView<T> {
   groups: { projectId: string; threads: RecentNode<T>[] }[];
   /** Other active threads idle for over a day, across projects, newest activity first. */
   stale: RecentNode<T>[];
+  /** Active threads shown nowhere above and idle under a day: the rest of a project in focus. */
+  rest: RecentNode<T>[];
 }
 
 /**
@@ -264,20 +266,22 @@ export function recentView<T extends ViewThread>(input: {
         .sort(byActivity),
     };
   };
-  const stale = live
-    // A subagent nests under its stale parent; one whose parent is shown above stands alone.
+  const loose = live
+    // A subagent nests under its unshown parent; one whose parent is shown above stands alone.
     .filter((thread) => {
       const parentId = thread.parentThreadId;
-      return (
-        !shown.has(thread.id) &&
-        thread.updatedAt < now - STALE_AFTER &&
-        (parentId === null || !byId.has(parentId) || shown.has(parentId))
-      );
+      return !shown.has(thread.id) && (parentId === null || !byId.has(parentId) || shown.has(parentId));
     })
     .map((thread) => staleNode(thread, new Set()))
     .sort(byActivity);
+  const isStale = (node: RecentNode<T>) => node.thread.updatedAt < now - STALE_AFTER;
 
-  return { waiting, groups: sortedGroups, stale };
+  return {
+    waiting,
+    groups: sortedGroups,
+    stale: loose.filter(isStale),
+    rest: loose.filter((node) => !isStale(node)),
+  };
 }
 
 /**
@@ -317,6 +321,44 @@ export function focusTree<T extends ViewThread>(
   });
   const root = live.find((thread) => thread.id === id);
   return root ? build(root) : null;
+}
+
+/** A pomodoro on one project: the view shows only it, and exit stays locked until `endsAt`. */
+export interface ProjectFocus {
+  projectId: string;
+  endsAt: number;
+}
+
+export const POMODORO_MS = 30 * 60_000;
+
+export function parseProjectFocus(raw: string | null): ProjectFocus | null {
+  try {
+    const value: unknown = JSON.parse(raw ?? "null");
+    if (!value || typeof value !== "object") return null;
+    const { projectId, endsAt } = value as Record<string, unknown>;
+    return typeof projectId === "string" && typeof endsAt === "number" ? { projectId, endsAt } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The Recent view narrowed to one project: its waiting threads, every other session, and its stale ones. */
+export function projectView<T extends { projectId: string }>(
+  view: RecentView<T>,
+  projectId: string,
+): { waiting: RecentNode<T>[]; threads: RecentNode<T>[]; stale: RecentNode<T>[] } {
+  const mine = (node: RecentNode<T>) => node.thread.projectId === projectId;
+  return {
+    waiting: view.waiting.filter(mine),
+    threads: [...(view.groups.find((group) => group.projectId === projectId)?.threads ?? []), ...view.rest.filter(mine)],
+    stale: view.stale.filter(mine),
+  };
+}
+
+/** "29:59" */
+export function countdown(ms: number): string {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 /** Whether `id` is this node or one of its descendants. */

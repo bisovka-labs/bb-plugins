@@ -4,9 +4,12 @@ import {
   BUILTIN_LIST,
   byProject,
   containsThread,
+  countdown,
   focusTree,
   lastPromptByThread,
   mergePrompts,
+  parseProjectFocus,
+  projectView,
   recentView,
   toggledProvider,
   trackAwaitingReply,
@@ -242,6 +245,25 @@ describe("recentView", () => {
     );
     expect(result.groups.map((group) => ids(group.threads))).toEqual([[["recent", ["recent-child"]], "recent-under-old"]]);
     expect(ids(result.stale)).toEqual(["unread-old", ["old", ["old-child"]], "older"]);
+    expect(ids(result.rest)).toEqual(["today"]);
+  });
+
+  it("narrows the view to one project: waiting, every other session, stale", () => {
+    const result = view(
+      [
+        thread("asks", "p1", { hasPendingInteraction: true }),
+        thread("recent", "p1"),
+        thread("today", "p1", { updatedAt: now - 23 * HOUR }),
+        thread("old", "p1", { updatedAt: 2 }),
+        thread("other", "p2"),
+        thread("other-today", "p2", { updatedAt: now - 2 * HOUR }),
+      ],
+      { asks: now - 1, recent: now - 2, other: now - 3 },
+    );
+    const project = projectView(result, "p1");
+    expect(ids(project.waiting)).toEqual(["asks"]);
+    expect(ids(project.threads)).toEqual(["recent", "today"]);
+    expect(ids(project.stale)).toEqual(["old"]);
   });
 
   it("finds the open thread anywhere in a tree", () => {
@@ -299,5 +321,16 @@ describe("ago", () => {
     expect(ago(now - 12 * 60_000, now)).toBe("12 мин");
     expect(ago(now - 3 * HOUR - 1, now)).toBe("3 ч");
     expect(ago(now - 50 * HOUR, now)).toBe("2 д");
+  });
+});
+
+describe("pomodoro", () => {
+  it("reads a stored focus and formats the countdown", () => {
+    expect(parseProjectFocus('{"projectId":"p1","endsAt":5}')).toEqual({ projectId: "p1", endsAt: 5 });
+    expect(parseProjectFocus("garbage")).toBeNull();
+    expect(parseProjectFocus('{"projectId":"p1"}')).toBeNull();
+    expect(countdown(30 * 60_000)).toBe("30:00");
+    expect(countdown(61_001)).toBe("1:02");
+    expect(countdown(-5)).toBe("0:00");
   });
 });

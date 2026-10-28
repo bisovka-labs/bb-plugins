@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPluginApp, renderSlot, type TestThreadActionsResolver } from "@get-bb/plugin-sdk/testing/app";
 import type { PluginSidebarThread, PluginThreadListProps } from "@get-bb/plugin-sdk/app";
 
 const now = Date.now();
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function thread(id: string, title: string, extra: Partial<PluginSidebarThread> = {}): PluginSidebarThread {
   return {
@@ -178,5 +181,45 @@ describe("Recent list", () => {
     expect(list.navigateCalls).toEqual([
       { method: "toCompose", options: { projectId: "proj_a", focusPrompt: true } },
     ]);
+  });
+
+  it("draws a rule under the waiting group", async () => {
+    await renderList();
+    const rule = screen.getByRole("separator");
+    expect(rule.previousElementSibling?.getAttribute("aria-label")).toBe("Ждут тебя");
+  });
+
+  it("offers new thread and focus on a project section of the waiting group", async () => {
+    const list = await renderList();
+    const waiting = screen.getByRole("region", { name: "Ждут тебя" });
+    fireEvent.click(within(waiting).getByRole("radio", { name: "По проектам" }));
+    fireEvent.click(within(waiting).getByRole("button", { name: "Новый тред в Alpha" }));
+    expect(list.navigateCalls).toEqual([
+      { method: "toCompose", options: { projectId: "proj_a", focusPrompt: true } },
+    ]);
+    expect(within(waiting).getByRole("button", { name: "Фокус на Alpha" })).toBeTruthy();
+  });
+
+  it("focuses a project for a locked 30-minute pomodoro", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await renderList();
+    fireEvent.click(screen.getAllByRole("button", { name: "Фокус на Alpha" })[0]);
+
+    expect(rowIds(screen.getByRole("region", { name: "Ждут тебя" }))).toEqual(["asks"]);
+    expect(rowIds(screen.getByRole("region", { name: "Сессии" }))).toEqual(["draft", "parent", "idle-today"]);
+    expect(rowIds(screen.getByRole("region", { name: "Висят" }))).toEqual(["old"]);
+    expect(screen.getByRole("timer").textContent).toBe("30:00");
+    const exit = screen.getByRole("button", { name: "Выйти" }) as HTMLButtonElement;
+    expect(exit.disabled).toBe(true);
+    expect(JSON.parse(localStorage.getItem("recent-threads:project-focus") ?? "null")?.projectId).toBe("proj_a");
+
+    await act(async () => {
+      vi.advanceTimersByTime(30 * 60_000 + 1_000);
+    });
+    expect(screen.getByRole("timer").textContent).toBe("готово");
+    expect(exit.disabled).toBe(false);
+    fireEvent.click(exit);
+    expect(screen.getByRole("region", { name: "Alpha" })).toBeTruthy();
+    expect(localStorage.getItem("recent-threads:project-focus")).toBeNull();
   });
 });
