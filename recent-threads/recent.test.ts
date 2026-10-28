@@ -9,6 +9,7 @@ import {
   lastPromptByThread,
   mergePrompts,
   parseProjectFocus,
+  projectRanks,
   projectView,
   recentView,
   toggledProvider,
@@ -312,6 +313,30 @@ describe("byProject", () => {
       ["a", ["a1", "a2"]],
       ["b", ["b1"]],
     ]);
+  });
+
+  it("keeps a project in place when its newest waiting thread goes away", () => {
+    const node = (id: string, projectId: string, latestAttentionAt: number) => ({
+      thread: { id, projectId, latestAttentionAt },
+      promptAt: null,
+      draftOnly: false,
+      children: [],
+    });
+    const order = (nodes: ReturnType<typeof node>[], ranks: Map<string, number>) =>
+      byProject(nodes, ranks).map(({ projectId }) => projectId);
+    const before = [node("a-new", "a", 30), node("b1", "b", 20), node("a-old", "a", 10)];
+    const first = projectRanks(before, new Map());
+    expect(order(before, first)).toEqual(["a", "b"]);
+
+    // "a-new" is archived: "a" would sort under "b" by its remaining thread.
+    const after = [node("b1", "b", 20), node("a-old", "a", 10)];
+    const second = projectRanks(after, first);
+    expect(order(after, second)).toEqual(["a", "b"]);
+
+    // A new event in "b" lifts it; a project with nothing waiting is forgotten.
+    const third = projectRanks([node("b2", "b", 40), node("a-old", "a", 10)], second);
+    expect(order([node("b2", "b", 40), node("a-old", "a", 10)], third)).toEqual(["b", "a"]);
+    expect(projectRanks([node("b2", "b", 40)], third).has("a")).toBe(false);
   });
 });
 

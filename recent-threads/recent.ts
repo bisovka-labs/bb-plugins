@@ -285,11 +285,31 @@ export function recentView<T extends ViewThread>(input: {
 }
 
 /**
+ * Each waiting project's place in the split: its freshest attention, never
+ * lower than in `previous`. Archiving or answering the newest thread of a
+ * project then leaves the project where it was; only a new event lifts it.
+ * Projects with nothing waiting are forgotten.
+ */
+export function projectRanks<T extends { projectId: string; latestAttentionAt: number }>(
+  nodes: readonly RecentNode<T>[],
+  previous: ReadonlyMap<string, number>,
+): Map<string, number> {
+  const ranks = new Map<string, number>();
+  for (const { thread } of nodes) {
+    const rank = ranks.get(thread.projectId) ?? previous.get(thread.projectId) ?? -Infinity;
+    ranks.set(thread.projectId, Math.max(rank, thread.latestAttentionAt));
+  }
+  return ranks;
+}
+
+/**
  * The waiting threads split by project. Nodes come newest attention first, so
- * the project with the freshest event leads and order inside is kept.
+ * the project with the freshest event leads and order inside is kept; `ranks`
+ * (from `projectRanks`) override the project order.
  */
 export function byProject<T extends { projectId: string }>(
   nodes: readonly RecentNode<T>[],
+  ranks?: ReadonlyMap<string, number>,
 ): { projectId: string; threads: RecentNode<T>[] }[] {
   const groups = new Map<string, RecentNode<T>[]>();
   for (const node of nodes) {
@@ -297,7 +317,9 @@ export function byProject<T extends { projectId: string }>(
     list.push(node);
     groups.set(node.thread.projectId, list);
   }
-  return [...groups.entries()].map(([projectId, threads]) => ({ projectId, threads }));
+  const sections = [...groups.entries()].map(([projectId, threads]) => ({ projectId, threads }));
+  const rank = (projectId: string) => ranks?.get(projectId) ?? -Infinity;
+  return ranks ? sections.sort((a, b) => rank(b.projectId) - rank(a.projectId)) : sections;
 }
 
 /**

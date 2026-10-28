@@ -38,6 +38,7 @@ import {
   mergePrompts,
   parseProjectFocus,
   POMODORO_MS,
+  projectRanks,
   projectView,
   PROVIDER_PREF,
   recentView,
@@ -714,6 +715,13 @@ function RecentList({ activeThreadId, onNavigate }: PluginThreadListProps) {
         : null,
     [threads, lastPrompt, draftSeen, hours, now, projectNames, awaitingReply, keepWaitingId, dismissedWaiting],
   );
+  // Project places in the split "Ждут тебя", kept so archiving a thread does not reshuffle them.
+  const waitingRanks = useRef<ReadonlyMap<string, number>>(new Map());
+  const waitingSections = useMemo(() => {
+    if (!view) return [];
+    waitingRanks.current = projectRanks(view.waiting, waitingRanks.current);
+    return byProject(view.waiting, waitingRanks.current);
+  }, [view]);
   const [focusedId, setFocusedId] = useState(() => localStorage.getItem(FOCUS_KEY));
   const focusOn = useCallback((id: string | null) => {
     if (id) localStorage.setItem(FOCUS_KEY, id);
@@ -984,7 +992,7 @@ function RecentList({ activeThreadId, onNavigate }: PluginThreadListProps) {
               nodes={view.waiting}
               sections={
                 waitingByProject
-                  ? byProject(view.waiting).map(({ projectId, threads }) => ({
+                  ? waitingSections.map(({ projectId, threads }) => ({
                       key: projectId,
                       name: projectNames.get(projectId) ?? projectId,
                       nodes: threads,
