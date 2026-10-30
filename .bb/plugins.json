@@ -36,6 +36,10 @@
       "source": "./handoff"
     },
     {
+      "name": "hide-empty-projects",
+      "source": "./hide-empty-projects"
+    },
+    {
       "name": "image-zoom",
       "source": "./image-zoom"
     },

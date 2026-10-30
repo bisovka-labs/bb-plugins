@@ -17,6 +17,7 @@
         "copy-image",
         "dictation-pause",
         "handoff",
+        "hide-empty-projects",
         "image-zoom",
         "openui",
         "phone-dictation",
@@ -174,6 +175,24 @@
           "url": "https://github.com/bisovka-labs/bb-plugins.git",
           "ref": "main",
           "subdir": "handoff"
+        }
+      }
+    },
+    {
+      "id": "hide-empty-projects",
+      "displayName": "Hide Empty Projects",
+      "description": "Проекты без активных тредов сами уходят из списка тредов в «Ещё» и возвращаются, как только в проекте появляется тред; сами проекты остаются в недавних.",
+      "icon": "FolderMinus",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "hide-empty-projects"
         }
       }
     },
