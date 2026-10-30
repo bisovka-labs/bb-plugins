@@ -4,10 +4,6 @@
   "name": "bisovka",
   "plugins": [
     {
-      "name": "agent-inbox",
-      "source": "./agent-inbox"
-    },
-    {
       "name": "agent-stats",
       "source": "./agent-stats"
     },

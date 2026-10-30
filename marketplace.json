@@ -9,7 +9,6 @@
       "id": "bisovka",
       "displayName": "Bisovka Plugins",
       "pluginIds": [
-        "agent-inbox",
         "agent-stats",
         "blur-titles",
         "context-folder",
@@ -32,25 +31,6 @@
     }
   ],
   "plugins": [
-    {
-      "id": "agent-inbox",
-      "displayName": "Agent Inbox",
-      "description": "Входящие от агентов: очередь ответов и запросов внимания с нативным чатом bb.",
-      "icon": "Inbox",
-      "author": {
-        "name": "Eugene Bisovka",
-        "github": "bisovka-labs",
-        "url": "https://github.com/bisovka-labs"
-      },
-      "source": {
-        "git": {
-          "url": "https://github.com/bisovka-labs/bb-plugins.git",
-          "ref": "main",
-          "subdir": "agent-inbox"
-        }
-      },
-      "overview": "Входящие от агентов внутри bb: готовые ответы, вопросы и ошибки в одной очереди. Работающие треды — в отдельной вкладке.\n\nСлева выберите тред, справа откроется нативный чат bb с обычными ответами и подтверждениями. Фильтруйте по проекту и названию, отмечайте ответы разобранными или откладывайте на час. Новый ответ снова появится во входящих.\n\nПлагин добавляет Agent Inbox в навигацию и компактный виджет на главную. Состояние разбора хранится в текущем браузере. Использует существующие треды и разрешения bb.\n"
-    },
     {
       "id": "agent-stats",
       "displayName": "Agent Stats",
