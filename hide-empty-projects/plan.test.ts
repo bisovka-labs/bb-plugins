@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { plan } from "./plan.ts";
+import { plan, projectsWithRows } from "./plan.ts";
 
 const S = (autoHidden: string[] = [], keepVisible: string[] = []) => ({ autoHidden, keepVisible });
 
@@ -44,4 +44,15 @@ test("forgets deleted projects", () => {
   const r = plan([], new Set(), ["project:gone"], S(["gone"], ["x"]));
   assert.deepEqual(r.state, S());
   assert.equal(r.changed, false);
+});
+
+test("a project shows only its unpinned roots", () => {
+  const T = (id: string, projectId: string, parentThreadId: string | null = null, pinnedAt: number | null = null) => ({ id, projectId, parentThreadId, pinnedAt });
+  const busy = projectsWithRows([
+    T("root", "a"),
+    T("child", "b", "root"), // shown under a
+    T("pinned", "c", null, 1),
+    T("orphan", "d", "archived-parent"), // parent gone: shown at the root of d
+  ]);
+  assert.deepEqual([...busy].sort(), ["a", "d"]);
 });

@@ -1,10 +1,11 @@
 // Hide Empty Projects: a project with no active threads leaves the sidebar
-// (bb's Thread list moves it into More through its hiddenGroups preference)
-// and comes back once a thread appears in it. Projects themselves stay, so
-// they remain in the new-thread project picker and recent projects.
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+// (bb's Thread list moves it into More through its hiddenGroups preference,
+// and app.tsx hides it in More too) and comes back once a thread appears in
+// it. Projects themselves stay, so they remain in the new-thread project
+// picker and recent projects.
+import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import { plan, type State } from "./plan.ts";
+import { plan, projectsWithRows, type SidebarThread, type State } from "./plan.ts";
 
 const THREAD_LIST = "thread-list";
 const STATE_KEY = "state";
@@ -12,6 +13,15 @@ const PAGE = 200;
 const DEBOUNCE_MS = 1_500;
 const SWEEP_MS = 5 * 60_000;
 const STARTUP_MS = 5_000;
+
+export const EMPTY_CHANGED = "empty-changed";
+
+export const rpcContract = defineRpcContract({
+  empty_projects: {
+    input: z.null(),
+    output: z.object({ projectIds: z.array(z.string()) }),
+  },
+});
 
 const prefsSchema = z.object({
   preferences: z.object({ hiddenGroups: z.array(z.string()) }).passthrough(),
@@ -21,13 +31,18 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<void> | null = null;
   let again = false;
+  let empty: string[] = [];
+
+  bb.rpc.register(rpcContract, {
+    empty_projects: () => ({ projectIds: empty }),
+  });
 
   async function busyProjects(): Promise<Set<string>> {
-    const busy = new Set<string>();
+    const threads: SidebarThread[] = [];
     for (let offset = 0; ; offset += PAGE) {
       const page = await bb.sdk.threads.list({ archived: false, limit: PAGE, offset });
-      for (const thread of page) if (thread.projectId) busy.add(thread.projectId);
-      if (page.length < PAGE) return busy;
+      threads.push(...page);
+      if (page.length < PAGE) return projectsWithRows(threads);
     }
   }
 
@@ -56,6 +71,11 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
       bb.log.info(`hide-empty-projects: hiddenGroups ${preferences.hiddenGroups.length} → ${next.hiddenGroups.length}`);
     }
     await bb.storage.kv.set(STATE_KEY, next.state);
+    const nextEmpty = projects.map((p) => p.id).filter((id) => !busy.has(id)).sort();
+    if (nextEmpty.join() !== empty.join()) {
+      empty = nextEmpty;
+      bb.realtime.publish(EMPTY_CHANGED, {});
+    }
   }
 
   function run(): void {

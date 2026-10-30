@@ -1,12 +1,15 @@
 # Hide Empty Projects
 
-BB plugin: a project with no active (unarchived) threads leaves the sidebar's
-thread list and comes back as soon as a thread appears in it. The project
+BB plugin: a project with no threads of its own in the sidebar leaves the
+thread list and comes back as soon as a thread appears in it. A project counts
+as empty when it has no unpinned, unarchived root thread: a child shows under
+its parent (even in another project) and a pinned thread shows in Pinned. The project
 itself is untouched, so it stays in the new-thread project picker and recent
 projects.
 
 How: it drives bb's Thread list `hiddenGroups` preference (the same as a
-group's "Hide from list"), so empty projects sit under More.
+group's "Hide from list"), and `app.tsx` also removes empty projects from the
+More menu, so only projects you hid by hand that still have threads stay there.
 
 - Syncs 5 s after load, 1.5 s after a thread is created, archived, unarchived
   or deleted, and every 5 minutes.

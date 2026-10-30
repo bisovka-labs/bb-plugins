@@ -13,11 +13,13 @@
     ],
     "noEmit": true,
     "skipLibCheck": false,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx"
   },
   "include": [
     "server.ts",
     "plan.ts",
-    "plan.test.ts"
+    "plan.test.ts",
+    "app.tsx"
   ]
 }

@@ -15,6 +15,28 @@ export interface Plan {
   changed: boolean;
 }
 
+export interface SidebarThread {
+  id: string;
+  projectId: string | null;
+  parentThreadId: string | null;
+  pinnedAt: number | null;
+}
+
+/**
+ * Projects whose sidebar group shows at least one thread. A child sits under
+ * its parent, even one in another project, and a pinned thread (with its
+ * children) sits in Pinned, so only unpinned roots put a project on screen.
+ */
+export function projectsWithRows(threads: readonly SidebarThread[]): Set<string> {
+  const byId = new Map(threads.map((t) => [t.id, t]));
+  const busy = new Set<string>();
+  for (let thread of threads) {
+    for (let parent; thread.parentThreadId && (parent = byId.get(thread.parentThreadId)); ) thread = parent;
+    if (thread.projectId && !thread.pinnedAt) busy.add(thread.projectId);
+  }
+  return busy;
+}
+
 export const groupKey = (projectId: string) => `project:${projectId}`;
 
 export function plan(

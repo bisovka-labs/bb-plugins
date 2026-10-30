@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-hide-empty-projects",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "engines": {
     "bb": ">=0.48",
@@ -8,14 +8,15 @@
   },
   "bb": {
     "name": "Hide Empty Projects",
-    "description": "Проекты без активных тредов сами уходят из списка тредов в «Ещё» и возвращаются, как только в проекте появляется тред; сами проекты остаются в недавних.",
+    "description": "Проекты без активных тредов сами пропадают из списка тредов и из «Ещё» и возвращаются, как только в проекте появляется тред; сами проекты остаются в недавних.",
     "branding": {
       "icon": "FolderMinus"
     },
     "server": "./server.ts",
     "skills": [
       "skills"
-    ]
+    ],
+    "app": "./app.tsx"
   },
   "dependencies": {
     "zod": "^4.6.5"
@@ -28,7 +29,8 @@
     "better-sqlite3": "^12.0.0",
     "cron-parser": "^5.5.0",
     "hono": "^4.11.9",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "@types/react-dom": "^19.0.0"
   },
   "author": "Eugene Bisovka",
   "scripts": {
