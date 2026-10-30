@@ -10,6 +10,8 @@ projects.
 How: it drives bb's Thread list `hiddenGroups` preference (the same as a
 group's "Hide from list"), and `app.tsx` also removes empty projects from the
 More menu, so only projects you hid by hand that still have threads stay there.
+The last row of More, «Показать пустые проекты (N)», brings the empty ones
+back into More until the menu closes.
 
 - Syncs 5 s after load, 1.5 s after a thread is created, archived, unarchived
   or deleted, and every 5 minutes.

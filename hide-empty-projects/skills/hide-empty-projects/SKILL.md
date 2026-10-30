@@ -13,6 +13,8 @@ parent's project, pinned threads in Pinned. When a thread is
 created or unarchived in such a project, the plugin removes the key again.
 Projects are never deleted and stay in the new-thread project picker.
 
+- In the UI: the last row of More, «Показать пустые проекты (N)», lists the
+  hidden empty projects until the menu closes.
 - See what is hidden: `bb thread-list prefs get hiddenGroups --json`.
 - Show one empty project: `bb thread-list prefs set hiddenGroups` without its
   `project:<id>` key (it is not listed in More). The plugin leaves an empty
