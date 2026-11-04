@@ -24,4 +24,10 @@ launching the native macOS browser was not exercised. A separate real menu click
 without a stub opened the expected TestFlight URL in a new browser page. The
 rendered menu was inspected at 1280 x 633.
 
+BB 0.48.1 (2026-11-04): the external opener now first routes app-scheme
+links (`slack://` and similar) and only then calls the bridge; HTTP(S) URLs
+fall through to `openExternalUrl` unchanged, so the detection regex accepts
+that optional prefix. Rechecked live in a headless BB page: Command-click opens
+once, a plain click does not, the context menu opens the link.
+
 Open BB windows need a reload to load the patched renderer.

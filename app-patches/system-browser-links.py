@@ -16,7 +16,8 @@ marker = '// BB system-browser-links:'
 if marker in source:
     sys.exit('already patched')
 
-external = re.findall(r'function (\w+|\$\w+)\(\w+\)\{let \w+=\w+\(\);if\(\w+!==null\)\{\w+\.openExternalUrl\(\w+\);return\}', source)
+# bb 0.48 first routes app-scheme links (slack:// etc.); http(s) falls through to the bridge.
+external = [m[0] for m in re.findall(r'function (\w+|\$\w+)\((\w+)\)\{(?:if\(\w+\(\2\)!==null\)\{\w+\(\2\);return\})?let \w+=\w+\(\);if\(\w+!==null\)\{\w+\.openExternalUrl\(\2\);return\}', source)]
 clipboard = re.findall(r'(\w+)\(\w+\(\w+\),\{successMessage:`Thread link copied`,errorMessage:`Failed to copy thread link`\}', source)
 assert len(external) == 1, ('external opener changed', external)
 assert len(set(clipboard)) == 1, ('clipboard helper changed', clipboard)
