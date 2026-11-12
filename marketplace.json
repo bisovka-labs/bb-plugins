@@ -16,6 +16,7 @@
         "copy-file",
         "copy-image",
         "dictation-pause",
+        "duo-layout",
         "handoff",
         "hide-empty-projects",
         "image-zoom",
@@ -155,6 +156,24 @@
           "url": "https://github.com/bisovka-labs/bb-plugins.git",
           "ref": "main",
           "subdir": "dictation-pause"
+        }
+      }
+    },
+    {
+      "id": "duo-layout",
+      "displayName": "Duo Layout",
+      "description": "Широкий сенсорный экран (развёрнутый iPhone Duo, iPad): кнопки под палец, поле ввода без зума, композер внизу и свайп, который прячет и возвращает сайдбар.",
+      "icon": "TabletSmartphone",
+      "author": {
+        "name": "Eugene Bisovka",
+        "github": "bisovka-labs",
+        "url": "https://github.com/bisovka-labs"
+      },
+      "source": {
+        "git": {
+          "url": "https://github.com/bisovka-labs/bb-plugins.git",
+          "ref": "main",
+          "subdir": "duo-layout"
         }
       }
     },

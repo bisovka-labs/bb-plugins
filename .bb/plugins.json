@@ -32,6 +32,10 @@
       "source": "./dictation-pause"
     },
     {
+      "name": "duo-layout",
+      "source": "./duo-layout"
+    },
+    {
       "name": "handoff",
       "source": "./handoff"
     },

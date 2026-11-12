@@ -1,0 +1,90 @@
+/*
+ * Wide touch screens only: app.ts sets html[data-duo-layout] while the screen
+ * is touch-first and at least 48rem wide (an unfolded iPhone Duo, an iPad).
+ * Below 48rem bb's phone layout and the phone plugins take over. Selectors
+ * target bb's own markup, which isn't a versioned API; when a bb update
+ * changes it, that part falls back to bb's desktop look.
+ */
+html[data-duo-layout] {
+  /* A finger needs ~44pt; bb's desktop buttons are 24-32px. */
+  --duo-hit: 2.75rem;
+}
+
+/*
+ * iOS zooms the page into any text field under 16px when it gets focus, and
+ * bb only bumps its fields to 16px below 48rem. Same 16px here, so focusing
+ * the message box keeps the page at 100%.
+ */
+html[data-duo-layout] :is([data-promptbox-editor-scroll], input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, select) {
+  font-size: max(1rem, 16px);
+}
+
+/*
+ * Thread rows in the sidebar: 36px instead of 30px. Taller rows cost too
+ * many threads on a ~670pt-high landscape screen.
+ */
+html[data-duo-layout] [data-sidebar="panel"] {
+  --bb-sidebar-row-height: 2.25rem;
+}
+
+/*
+ * Larger hit areas without moving anything: an invisible ::after around the
+ * small icon buttons of the rail, the sidebar, the page header and the
+ * message box. Buttons that already lay out an ::after keep it.
+ */
+html[data-duo-layout] :is(
+    [data-testid="app-nav-rail"],
+    [data-sidebar="panel"],
+    [data-testid="app-page-header-content-row"],
+    form[data-promptbox]
+  )
+  button:not([class*="after:"], [class~="absolute"], [class~="fixed"], [class~="sticky"]),
+html[data-duo-layout] button[data-sidebar="trigger"]:not([class*="after:"], [class~="absolute"], [class~="fixed"]) {
+  position: relative;
+}
+
+html[data-duo-layout] :is(
+    [data-testid="app-nav-rail"],
+    [data-sidebar="panel"],
+    [data-testid="app-page-header-content-row"],
+    form[data-promptbox]
+  )
+  button:not([class*="after:"])::after,
+html[data-duo-layout] button[data-sidebar="trigger"]:not([class*="after:"])::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, var(--duo-hit));
+  height: max(100%, var(--duo-hit));
+  translate: -50% -50%;
+}
+
+/* The rail's icons sit 6px apart; spread them so their hit areas don't overlap much. */
+html[data-duo-layout] [data-testid="app-nav-rail"] > div:first-child {
+  gap: 0.875rem;
+}
+
+/*
+ * Landscape on a foldable is short (~670pt). An empty message box keeps one
+ * line instead of three and grows as you type, as bb's own box does.
+ */
+@media (max-height: 50rem) {
+  html[data-duo-layout] [data-promptbox-editor-scroll] {
+    min-height: 2.75rem !important;
+  }
+}
+
+/*
+ * The home page puts the message box at the bottom, where it is in a thread
+ * and where thumbs reach on a device held in both hands, instead of at the
+ * top of an empty page.
+ */
+html[data-duo-layout] :has(> [data-testid="root-compose-compact-home"]) {
+  display: flex;
+  flex-direction: column;
+}
+
+html[data-duo-layout] [data-testid="root-compose-compact-home"] {
+  margin-top: auto;
+}
