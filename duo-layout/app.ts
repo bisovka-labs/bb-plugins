@@ -7,11 +7,18 @@
 // least 48rem wide; app.css does the rest of the work under that mark. The
 // script also adds one gesture: a sideways swipe over the thread hides the
 // sidebar (left) or brings it back (right), through bb's own toggle.
+//
+// In landscape iOS reserves a full-height safe-area strip on the side of the
+// status bar (84pt on the unfolded Duo). When that strip is on the right, the
+// script marks it with `html[data-duo-strip]` and app.css moves the thread's
+// header actions into it as a vertical glass toolbar.
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import "./app.css";
 
 const WIDE_TOUCH = "(min-width: 48rem) and (pointer: coarse)";
 const MARK = "data-duo-layout";
+const STRIP = "data-duo-strip";
+const STRIP_MIN_PX = 56; // narrower insets (a notch's sliver) stay empty
 const DECIDE_PX = 10; // movement before choosing between swipe and scroll
 const TOGGLE_PX = 72; // horizontal travel that toggles the sidebar
 const IGNORE =
@@ -31,11 +38,35 @@ function sidebarState() {
   return document.querySelector('[data-collapsible][data-side="left"]')?.getAttribute("data-state");
 }
 
+/** The right safe-area inset in px, read through a probe element. */
+function rightInset() {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;visibility:hidden;pointer-events:none;padding-right:env(safe-area-inset-right)";
+  document.body.appendChild(probe);
+  const px = parseFloat(getComputedStyle(probe).paddingRight) || 0;
+  probe.remove();
+  return px;
+}
+
 function mount({ signal }: { signal: AbortSignal }) {
+  const root = document.documentElement;
   const query = window.matchMedia(WIDE_TOUCH);
-  const sync = () => document.documentElement.toggleAttribute(MARK, query.matches);
+  const sync = () => {
+    root.toggleAttribute(MARK, query.matches);
+    const strip = query.matches ? rightInset() : 0;
+    root.toggleAttribute(STRIP, strip >= STRIP_MIN_PX);
+    root.style.setProperty("--duo-strip", `${strip}px`);
+  };
   sync();
   query.addEventListener("change", sync, { signal });
+  // Rotating flips the strip between the sides; the inset settles after the turn.
+  let timer: number | undefined;
+  const later = () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(sync, 300);
+  };
+  window.addEventListener("resize", later, { signal });
+  window.addEventListener("orientationchange", later, { signal });
 
   let swipe: Swipe | null = null;
 
@@ -90,7 +121,12 @@ function mount({ signal }: { signal: AbortSignal }) {
   window.addEventListener("touchend", onEnd, capture);
   window.addEventListener("touchcancel", onEnd, capture);
 
-  return () => document.documentElement.removeAttribute(MARK);
+  return () => {
+    window.clearTimeout(timer);
+    root.removeAttribute(MARK);
+    root.removeAttribute(STRIP);
+    root.style.removeProperty("--duo-strip");
+  };
 }
 
 export default definePluginApp((app) => {

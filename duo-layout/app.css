@@ -190,6 +190,41 @@ html[data-duo-layout] [data-testid="app-page-header-content-row"] > div:last-chi
   height: 20px;
 }
 
+/*
+ * Landscape with the status bar's safe-area strip on the right (84pt on the
+ * unfolded Duo): the strip is useless for text, but it is where the right
+ * thumb rests. The header actions move there as a vertical glass toolbar,
+ * centered in the strip and on the screen's height, below the clock; the
+ * title gets the header's whole width.
+ */
+html[data-duo-layout][data-duo-strip] [data-testid="app-page-header-content-row"] > div:last-child:has(button) {
+  position: fixed;
+  z-index: 40;
+  top: 50%;
+  right: calc(var(--duo-gap) + (var(--duo-strip) - 52px) / 2);
+  translate: 0 -50%;
+  flex-direction: column;
+  width: 52px;
+  height: auto;
+  padding: 4px 0;
+  gap: 4px;
+}
+
+html[data-duo-layout][data-duo-strip] [data-testid="app-page-header-content-row"] > div:last-child button {
+  width: var(--duo-hit);
+  height: var(--duo-hit);
+}
+
+/* bb nests the buttons in row-flex wrappers capped at 28px; stack them too. */
+html[data-duo-layout][data-duo-strip] [data-testid="app-page-header-content-row"] > div:last-child :is(div, span):not(button, button *) {
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-height: none;
+  max-width: none;
+  margin: 0;
+}
+
 /* ---------- Message box: glass floating over the thread ---------- */
 
 /*
