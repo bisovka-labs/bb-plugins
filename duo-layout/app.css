@@ -1,36 +1,132 @@
 /*
  * Wide touch screens only: app.ts sets html[data-duo-layout] while the screen
  * is touch-first and at least 48rem wide (an unfolded iPhone Duo, an iPad).
- * Below 48rem bb's phone layout and the phone plugins take over. Selectors
- * target bb's own markup, which isn't a versioned API; when a bb update
- * changes it, that part falls back to bb's desktop look.
+ * Below 48rem bb's phone layout and the phone plugins take over.
+ *
+ * The unfolded Duo is regular width x regular height, the iPad size class, so
+ * this follows Apple's iPad layout for iOS 26: a list column and the content
+ * side by side, navigation and controls on a floating Liquid Glass layer, the
+ * content readable underneath. Numbers are Apple's long-standing iOS metrics:
+ * 17pt body text, 44pt minimum touch target, 44pt sidebar rows.
+ *
+ * Selectors target bb's own markup, which isn't a versioned API; when a bb
+ * update changes it, that part falls back to bb's desktop look.
  */
 html[data-duo-layout] {
-  /* A finger needs ~44pt; bb's desktop buttons are 24-32px. */
-  --duo-hit: 2.75rem;
+  --duo-hit: 44px; /* minimum touch target */
+  --duo-body: 17px; /* body text at the default Dynamic Type size */
+  --duo-gap: 6px; /* space between the two floating panes and the screen edge */
+  --duo-pane-radius: 22px;
+  --duo-row: 44px;
+  --duo-separator: color-mix(in srgb, var(--foreground) 12%, transparent);
+  --duo-fill: color-mix(in srgb, var(--foreground) 9%, transparent);
+  --duo-glass: color-mix(in srgb, var(--background) 70%, transparent);
+  --duo-glass-blur: blur(24px) saturate(180%);
+  --duo-glass-rim: inset 0 0.5px 0 color-mix(in srgb, #fff 18%, transparent);
+  --duo-glass-shadow: 0 6px 24px rgb(0 0 0 / 0.14), 0 1px 3px rgb(0 0 0 / 0.08);
 }
 
+/* ---------- Text ---------- */
+
 /*
- * iOS zooms the page into any text field under 16px when it gets focus, and
- * bb only bumps its fields to 16px below 48rem. Same 16px here, so focusing
- * the message box keeps the page at 100%.
+ * bb sets messages, sidebar rows and fields at 14px for a mouse. Body text
+ * goes to 17px. 16px or more also keeps iOS from zooming the page when a
+ * field takes focus.
  */
-html[data-duo-layout] :is([data-promptbox-editor-scroll], input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, select) {
+html[data-duo-layout] :is([data-message-column], [data-markdown-preview], [data-promptbox-editor-scroll]) {
+  font-size: var(--duo-body);
+}
+
+html[data-duo-layout] :is(input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, select) {
   font-size: max(1rem, 16px);
 }
 
+/* Inline navigation title: 17pt semibold. Sidebar rows share the class. */
+html[data-duo-layout] [data-testid="app-page-header-content-row"] .bb-thread-title {
+  font-size: var(--duo-body);
+  font-weight: 600;
+}
+
+/* ---------- Sidebar: a floating pane ---------- */
+
 /*
- * Thread rows in the sidebar: 36px instead of 30px. Taller rows cost too
- * many threads on a ~670pt-high landscape screen.
+ * A wider list column for 17pt titles: 304pt of list beside bb's 48pt rail,
+ * which still leaves the thread about 590pt in landscape. bb writes the width
+ * inline, so this overrides it; dragging the sidebar wider is a mouse
+ * gesture anyway.
  */
-html[data-duo-layout] [data-sidebar="panel"] {
-  --bb-sidebar-row-height: 2.25rem;
+html[data-duo-layout] [data-collapsible][data-side="left"] > * {
+  --sidebar-width: 352px !important;
+}
+
+/* bb sizes the list beside the rail inline from 320px; it fills its column. */
+html[data-duo-layout] [data-testid="nav-rail-sidebar-body"] > div {
+  width: 100% !important;
+}
+
+/* The canvas behind the two panes, a step darker than the sidebar. */
+html[data-duo-layout] [data-testid="app-layout-root"] {
+  background: color-mix(in srgb, var(--sidebar) 90%, #000);
 }
 
 /*
- * Larger hit areas without moving anything: an invisible ::after around the
- * small icon buttons of the rail, the sidebar, the page header and the
- * message box. Buttons that already lay out an ::after keep it.
+ * The sidebar becomes the left of two floating panes, inset by the same gap
+ * and rounded like the thread's pane. A text-heavy sidebar uses Apple's
+ * dense, readable material, so its fill stays solid rather than see-through.
+ */
+html[data-duo-layout] [data-sidebar="panel"] > [data-sidebar="sidebar"] {
+  margin: var(--duo-gap);
+  width: calc(100% - 2 * var(--duo-gap));
+  height: calc(100% - 2 * var(--duo-gap));
+  overflow: hidden;
+  border-radius: var(--duo-pane-radius);
+  background: var(--sidebar);
+  box-shadow: 0 0 0 0.5px var(--duo-separator), var(--duo-glass-shadow);
+}
+
+/* One surface: the rail and its footer cell lose their own tint. */
+html[data-duo-layout] :is([data-testid="sidebar-navigation-rail"], [data-sidebar="sidebar"] > div > .col-start-1) {
+  background: transparent;
+}
+
+/* Section headers: 15pt semibold, as tall as a compact row. */
+html[data-duo-layout] [data-sidebar="group-label"] {
+  font-size: 15px;
+  font-weight: 600;
+  min-height: 36px;
+}
+
+/* Rows: 44pt, 17pt text, a rounded gray fill for the selection. */
+html[data-duo-layout] [data-sidebar="panel"] {
+  --bb-sidebar-row-height: var(--duo-row);
+}
+
+html[data-duo-layout] [data-sidebar-rename-row] {
+  font-size: var(--duo-body);
+  border-radius: 10px;
+}
+
+html[data-duo-layout] [data-sidebar-rename-row] svg[data-icon-root] {
+  width: 20px;
+  height: 20px;
+}
+
+html[data-duo-layout] .bb-sidebar-selected-row {
+  background: var(--duo-fill);
+  box-shadow: none;
+}
+
+/* The thread's pane matches the sidebar's corners. */
+html[data-duo-layout] main[data-sidebar="inset"] {
+  border-radius: var(--duo-pane-radius);
+}
+
+/* ---------- Touch targets ---------- */
+
+/*
+ * An invisible ::after gives the small icon buttons of the rail, the sidebar,
+ * the page header and the message box a 44pt hit area without moving them.
+ * Buttons that already lay out an ::after keep it.
  */
 html[data-duo-layout] :is(
     [data-testid="app-nav-rail"],
@@ -60,9 +156,62 @@ html[data-duo-layout] button[data-sidebar="trigger"]:not([class*="after:"])::aft
   translate: -50% -50%;
 }
 
-/* The rail's icons sit 6px apart; spread them so their hit areas don't overlap much. */
+/* Rail icons: 20pt glyphs, spaced so the hit areas barely overlap. */
 html[data-duo-layout] [data-testid="app-nav-rail"] > div:first-child {
   gap: 0.875rem;
+}
+
+html[data-duo-layout] [data-testid="app-nav-rail"] button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---------- Toolbar: actions in one glass capsule ---------- */
+
+html[data-duo-layout] [data-testid="app-page-header-content-row"] > div:last-child:has(button) {
+  height: var(--duo-hit);
+  padding-inline: 4px;
+  gap: 2px;
+  border-radius: 999px;
+  background: var(--duo-glass);
+  -webkit-backdrop-filter: var(--duo-glass-blur);
+  backdrop-filter: var(--duo-glass-blur);
+  box-shadow: 0 0 0 0.5px var(--duo-separator), var(--duo-glass-rim), var(--duo-glass-shadow);
+}
+
+html[data-duo-layout] [data-testid="app-page-header-content-row"] > div:last-child button {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+}
+
+html[data-duo-layout] [data-testid="app-page-header-content-row"] > div:last-child button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---------- Message box: glass floating over the thread ---------- */
+
+/*
+ * The thread scrolls under the message box. bb paints the box's footer
+ * opaque; here it fades in from the bottom edge instead (Apple's scroll edge
+ * effect), so the glass box shows the text passing behind it.
+ */
+html[data-duo-layout] [data-scroll-footer] > .bg-background {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--background) 85%, transparent) 55%
+  );
+}
+
+html[data-duo-layout] form[data-promptbox] {
+  border-radius: 24px;
+  border-color: var(--duo-separator);
+  background: var(--duo-glass);
+  -webkit-backdrop-filter: var(--duo-glass-blur);
+  backdrop-filter: var(--duo-glass-blur);
+  box-shadow: var(--duo-glass-rim), var(--duo-glass-shadow);
 }
 
 /*
@@ -71,14 +220,13 @@ html[data-duo-layout] [data-testid="app-nav-rail"] > div:first-child {
  */
 @media (max-height: 50rem) {
   html[data-duo-layout] [data-promptbox-editor-scroll] {
-    min-height: 2.75rem !important;
+    min-height: var(--duo-hit) !important;
   }
 }
 
 /*
  * The home page puts the message box at the bottom, where it is in a thread
- * and where thumbs reach on a device held in both hands, instead of at the
- * top of an empty page.
+ * and in Messages, instead of at the top of an empty page.
  */
 html[data-duo-layout] :has(> [data-testid="root-compose-compact-home"]) {
   display: flex;
