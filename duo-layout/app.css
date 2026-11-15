@@ -20,10 +20,10 @@ html[data-duo-layout] {
   /*
    * Corners that meet the screen's own rounded corners are concentric with
    * them: the screen's radius minus the gap. Apple publishes no radius for
-   * the Duo's inner display; 44pt is an estimate from the device, adjust it
+   * the Duo's inner display; 50pt is fitted on the device by eye, adjust it
    * here if the corners still miss.
    */
-  --duo-screen-radius: 44px;
+  --duo-screen-radius: 50px;
   --duo-outer-radius: max(var(--duo-pane-radius), calc(var(--duo-screen-radius) - var(--duo-gap)));
   /* One curve for every move, the iOS sheet spring as a bezier. */
   --duo-ease: cubic-bezier(0.32, 0.72, 0, 1);
