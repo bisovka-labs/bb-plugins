@@ -178,9 +178,13 @@ function dockButton(item: DockItem) {
     haptic();
     item.run();
   });
+  // Writes only on a change: an unchanged write still restyles the dock.
   const refresh = () => {
-    button.hidden = item.present ? !item.present() : false;
-    if (item.pressed) button.setAttribute("aria-pressed", String(item.pressed()));
+    const hidden = item.present ? !item.present() : false;
+    if (button.hidden !== hidden) button.hidden = hidden;
+    if (!item.pressed) return;
+    const pressed = String(item.pressed());
+    if (button.getAttribute("aria-pressed") !== pressed) button.setAttribute("aria-pressed", pressed);
   };
   return { button, refresh };
 }
@@ -296,15 +300,22 @@ function mount({ signal }: { signal: AbortSignal }) {
 
   // bb's ⋯ menu anchors to its own button, which the phone doesn't paint in
   // the strip. Keep it, invisible, under the dock's ⋯ so the menu opens there.
-  const pinThreadMenu = () => {
+  // Reading a rect forces layout, so it is read only when the pin may have
+  // moved: another ⋯ (a new thread), a dock change, or a resize (`sync`).
+  let pinned: { el: Element; key: string } | null = null;
+  const pinThreadMenu = (force = false) => {
     const theirs = find(THREAD_MENU)?.parentElement;
     const ours = dock.querySelector<HTMLElement>('[aria-label="Thread actions"]');
     if (!theirs) return;
     if (!root.hasAttribute(STRIP) || !ours || ours.hidden) {
+      pinned = null;
       theirs.removeAttribute("data-duo-pinned");
       for (const p of ["top", "left", "width", "height"]) theirs.style.removeProperty(p);
       return;
     }
+    const key = [...dock.querySelectorAll("button")].map((b) => (b.hidden ? 0 : 1)).join("");
+    if (!force && pinned?.el === theirs && pinned.key === key) return;
+    pinned = { el: theirs, key };
     const r = ours.getBoundingClientRect();
     theirs.setAttribute("data-duo-pinned", "");
     theirs.style.setProperty("top", `${r.top}px`, "important");
@@ -332,17 +343,25 @@ function mount({ signal }: { signal: AbortSignal }) {
   };
 
   let frame = 0;
-  const refresh = () => {
+  const refresh = (force = false) => {
     frame = 0;
     for (const item of items) item.refresh();
     for (const g of dock.querySelectorAll<HTMLElement>("[data-duo-dock-group]")) {
-      g.hidden = ![...g.querySelectorAll("button")].some((b) => !b.hidden);
+      const hidden = ![...g.querySelectorAll("button")].some((b) => !b.hidden);
+      if (g.hidden !== hidden) g.hidden = hidden;
     }
     followPanel();
-    pinThreadMenu();
+    pinThreadMenu(force);
   };
-  const observer = new MutationObserver(() => {
-    if (!frame) frame = requestAnimationFrame(refresh);
+  // A streaming reply changes the timeline every frame and nothing the dock
+  // shows lives there, so those changes are skipped without any work.
+  const TIMELINE = "[data-thread-window] [data-page-scroll-viewport]";
+  const observer = new MutationObserver((records) => {
+    if (records.some((r) => r.attributeName === "data-panel-size")) followPanel();
+    if (frame) return;
+    const stream = document.querySelector(TIMELINE);
+    if (stream && records.every((r) => stream.contains(r.target))) return;
+    frame = requestAnimationFrame(() => refresh());
   });
   observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-state", "data-panel-size", "aria-current", "aria-label"] });
   signal.addEventListener("abort", () => observer.disconnect());
@@ -356,7 +375,7 @@ function mount({ signal }: { signal: AbortSignal }) {
     root.toggleAttribute(STRIP_LEFT, onLeft);
     root.style.setProperty("--duo-strip", `${onLeft ? left : right}px`);
     root.style.setProperty("--duo-inset-bottom", `${bottom}px`);
-    refresh();
+    refresh(true);
   };
   sync();
   query.addEventListener("change", sync, { signal });

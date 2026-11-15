@@ -17,6 +17,17 @@ html[data-duo-layout] {
   --duo-body: 17px; /* body text at the default Dynamic Type size */
   --duo-gap: 6px; /* space between the two floating panes and the screen edge */
   --duo-pane-radius: 22px;
+  /*
+   * Corners that meet the screen's own rounded corners are concentric with
+   * them: the screen's radius minus the gap. Apple publishes no radius for
+   * the Duo's inner display; 44pt is an estimate from the device, adjust it
+   * here if the corners still miss.
+   */
+  --duo-screen-radius: 44px;
+  --duo-outer-radius: max(var(--duo-pane-radius), calc(var(--duo-screen-radius) - var(--duo-gap)));
+  /* One curve for every move, the iOS sheet spring as a bezier. */
+  --duo-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --duo-move: 320ms;
   --duo-row: 44px;
   --duo-separator: color-mix(in srgb, var(--foreground) 12%, transparent);
   --duo-fill: color-mix(in srgb, var(--foreground) 9%, transparent);
@@ -119,6 +130,27 @@ html[data-duo-layout] .bb-sidebar-selected-row {
 /* The thread's pane matches the sidebar's corners. */
 html[data-duo-layout] main[data-sidebar="inset"] {
   border-radius: var(--duo-pane-radius);
+  transition: border-radius var(--duo-move) var(--duo-ease);
+}
+
+/*
+ * Corners on the screen's edge follow the screen's curve: the sidebar's
+ * outer side, and the thread's when the sidebar is hidden or the strip is on
+ * the other side.
+ */
+html[data-duo-layout]:not([data-duo-strip-left]) [data-sidebar="panel"] > [data-sidebar="sidebar"] {
+  border-top-left-radius: var(--duo-outer-radius);
+  border-bottom-left-radius: var(--duo-outer-radius);
+}
+
+html[data-duo-layout]:not([data-duo-strip-left]):has([data-collapsible][data-side="left"][data-state="collapsed"]) main[data-sidebar="inset"] {
+  border-top-left-radius: var(--duo-outer-radius);
+  border-bottom-left-radius: var(--duo-outer-radius);
+}
+
+html[data-duo-layout]:is(:not([data-duo-strip]), [data-duo-strip-left]) main[data-sidebar="inset"] {
+  border-top-right-radius: var(--duo-outer-radius);
+  border-bottom-right-radius: var(--duo-outer-radius);
 }
 
 /* ---------- Sidebar controls: sized for a thumb ---------- */
@@ -462,12 +494,32 @@ html[data-duo-layout][data-duo-strip] [data-duo-pinned] {
  * The right panel is an inspector column, 340pt beside the thread; the
  * script hides the sidebar while it is open.
  */
-html[data-duo-layout] [data-panel-id="thread-detail-secondary-panel"]:not([data-panel-size="0.0"]) {
+html[data-duo-layout] [data-panel-id="thread-detail-secondary-panel"] {
   flex: 0 0 340px !important;
+  overflow: hidden !important;
+  transition: flex-basis var(--duo-move) var(--duo-ease) !important;
 }
 
-html[data-duo-layout] [data-panel-group-id]:has(> [data-panel-id="thread-detail-secondary-panel"]:not([data-panel-size="0.0"])) > [data-panel-id="thread-detail-timeline-panel"] {
+html[data-duo-layout] [data-panel-id="thread-detail-secondary-panel"][data-panel-size="0.0"] {
+  flex-basis: 0px !important;
+}
+
+/* The first open mounts the panel; it still slides in from nothing. */
+@starting-style {
+  html[data-duo-layout] [data-panel-id="thread-detail-secondary-panel"] {
+    flex-basis: 0px !important;
+  }
+}
+
+/* Its content is the column's width throughout, so it never rewraps. */
+html[data-duo-layout] [data-panel-id="thread-detail-secondary-panel"] > * {
+  width: 340px !important;
+  min-width: 340px !important;
+}
+
+html[data-duo-layout] [data-panel-group-id]:has(> [data-panel-id="thread-detail-secondary-panel"]) > [data-panel-id="thread-detail-timeline-panel"] {
   flex: 1 1 0 !important;
+  transition: none !important;
 }
 
 /*
@@ -546,13 +598,63 @@ html[data-duo-layout] [data-testid="root-compose-compact-home"] {
   margin-top: auto;
 }
 
-/* With the strip on, the collapsed sidebar is not a rail of icons (the dock has
-   them) but gone: the thread and its inspector get the whole width. */
-html[data-duo-strip] [data-collapsible="rail"][data-state="collapsed"],
-html[data-duo-strip] [data-collapsible="rail"][data-state="collapsed"] > [data-sidebar="panel"] {
+/*
+ * Sidebar motion. bb moves the sidebar in 200ms linear; here it is the iOS
+ * curve. With the strip on, the collapsed sidebar is not a rail of icons
+ * (the dock has them) but slides off the screen whole, and the thread takes
+ * its width in step.
+ */
+html[data-duo-layout] [data-collapsible][data-side="left"] > :is([data-sidebar="gap"], [data-sidebar="panel"]) {
+  transition-duration: var(--duo-move) !important;
+  transition-timing-function: var(--duo-ease) !important;
+}
+
+/* The gap holds the sidebar's place in the row; it closes in step. */
+html[data-duo-strip] [data-collapsible="rail"][data-state="collapsed"] > [data-sidebar="gap"] {
   width: 0 !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
+}
+
+html[data-duo-strip] [data-collapsible="rail"][data-state="collapsed"] > [data-sidebar="panel"] {
+  width: var(--sidebar-width) !important;
+  left: calc(-1 * var(--sidebar-width)) !important;
+}
+
+/* bb hides the list the moment the sidebar collapses; keep it while it slides. */
+html[data-duo-strip] [data-collapsible="rail"][data-state="collapsed"] [data-sidebar="collapsible-body"] {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* The More sheet grows from its button. */
+@keyframes duo-pop {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+}
+
+html[data-duo-layout] [data-duo-sheet]:not([hidden]) {
+  transform-origin: bottom right;
+  animation: duo-pop 220ms var(--duo-ease);
+}
+
+html[data-duo-layout][data-duo-strip-left] [data-duo-sheet]:not([hidden]) {
+  transform-origin: bottom left;
+}
+
+/* Dock pills fade between states instead of snapping. */
+html[data-duo-layout][data-duo-strip] [data-duo-dock] button {
+  transition: scale 160ms var(--duo-ease), background-color 200ms var(--duo-ease), color 200ms var(--duo-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-duo-layout] {
+    --duo-move: 1ms;
+  }
+
+  html[data-duo-layout] [data-duo-sheet]:not([hidden]) {
+    animation: none;
+  }
 }
 
 /*
