@@ -554,3 +554,54 @@ html[data-duo-strip] [data-collapsible="rail"][data-state="collapsed"] > [data-s
   min-width: 0 !important;
   overflow: hidden !important;
 }
+
+/*
+ * The home indicator sits mid-screen, not under the sidebar, so with the
+ * strip on the sidebar drops bb's home-indicator padding and its footer
+ * becomes a thumb row at the very bottom: 52pt buttons, 26pt glyphs.
+ */
+html[data-duo-strip] [data-sidebar="sidebar"] {
+  padding-bottom: 0 !important;
+}
+
+html[data-duo-strip] [data-sidebar="footer"] {
+  padding-bottom: 10px !important;
+}
+
+html[data-duo-strip] [data-sidebar="footer"] [data-sidebar="menu-button"] {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+}
+
+html[data-duo-strip] [data-sidebar="footer"] [data-sidebar="menu-button"] svg {
+  width: 26px;
+  height: 26px;
+}
+
+/*
+ * Menus and pickers at touch size: 17pt text, 44pt rows, 20pt icons, like a
+ * UIMenu. bb's are desktop menus with 14px text and 28px rows.
+ */
+html[data-duo-layout] :is([role="menu"], [role="listbox"]) {
+  min-width: 240px !important;
+  padding: 6px !important;
+  border-radius: 16px !important;
+}
+
+html[data-duo-layout] :is([role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="option"]) {
+  min-height: 44px !important;
+  padding-inline: 12px !important;
+  gap: 12px !important;
+  font-size: 17px !important;
+  border-radius: 10px !important;
+}
+
+html[data-duo-layout] :is([role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="option"]) svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+html[data-duo-layout] :is([role="menu"], [role="listbox"]) [role="separator"] {
+  margin-block: 6px !important;
+}
