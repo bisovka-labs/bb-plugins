@@ -121,6 +121,91 @@ html[data-duo-layout] main[data-sidebar="inset"] {
   border-radius: var(--duo-pane-radius);
 }
 
+/* ---------- Sidebar controls: sized for a thumb ---------- */
+
+/*
+ * bb's sidebar toggle in the top left corner is a 28pt square; here it is a
+ * 40pt glass circle with a 22pt glyph, as the sidebar button in Notes.
+ */
+html[data-duo-layout] [data-testid="app-sidebar-trigger-overlay"] {
+  width: auto;
+  height: auto;
+  padding: 8px 0 0 10px;
+}
+
+html[data-duo-layout] [data-testid="app-sidebar-trigger-overlay"] button[data-sidebar="trigger"] {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--duo-glass);
+  -webkit-backdrop-filter: var(--duo-glass-blur);
+  backdrop-filter: var(--duo-glass-blur);
+  box-shadow: 0 0 0 0.5px var(--duo-separator), var(--duo-glass-rim);
+}
+
+html[data-duo-layout] [data-testid="app-sidebar-trigger-overlay"] button[data-sidebar="trigger"] svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* New thread, Back and Forward at the top of the list. */
+html[data-duo-layout] [data-testid="app-sidebar-top-reserve-row"] {
+  height: 56px;
+}
+
+html[data-duo-layout] [data-testid="app-sidebar-top-reserve-row"] svg {
+  width: 20px;
+  height: 20px;
+}
+
+html[data-duo-layout] [data-testid="app-sidebar-top-reserve-row"] :is(button[aria-label="Go back"], button[aria-label="Go forward"]) {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+}
+
+html[data-duo-layout] [data-testid="app-sidebar-top-reserve-row"] :is(button[aria-label="Go back"], button[aria-label="Go forward"]) svg {
+  width: 22px;
+  height: 22px;
+}
+
+/*
+ * The footer's icon row: 44pt buttons with 22pt glyphs spread across the
+ * whole row instead of 32pt squares packed to the left, and a 40pt Settings
+ * button beside it in the rail.
+ */
+html[data-duo-layout] [data-sidebar="footer"] {
+  min-height: 60px;
+}
+
+html[data-duo-layout] [data-sidebar="footer"] > ul[data-sidebar="menu"],
+html[data-duo-layout] [data-sidebar="footer"] > ul > li > ul[data-sidebar="menu"] {
+  justify-content: space-between;
+}
+
+html[data-duo-layout] [data-sidebar="footer"] > ul > li:first-child {
+  flex: 1;
+}
+
+html[data-duo-layout] [data-sidebar="footer"] [data-sidebar="menu-button"] {
+  width: 44px;
+  height: 44px;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+html[data-duo-layout] [data-sidebar="footer"] [data-sidebar="menu-button"] svg,
+html[data-duo-layout] button[aria-label^="Settings"] svg {
+  width: 22px;
+  height: 22px;
+}
+
+html[data-duo-layout] button[aria-label^="Settings"] {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
 /* ---------- Touch targets ---------- */
 
 /*
@@ -201,25 +286,24 @@ html[data-duo-layout] [data-testid="app-page-header-content-row"] > div:last-chi
   height: 20px;
 }
 
-/* ---------- The landscape strip: a vertical toolbar ---------- */
+/* ---------- The landscape strip: the app's toolbar and tab bar ---------- */
 
 /*
  * Landscape with the status bar's strip on the right (84pt on the unfolded
  * Duo). Text stays out of it, but it is where the right thumb rests, and on
- * the Duo Apple lays toolbars out vertically in it, under the status bar.
- * As in Notes there, the controls stack in three tiers below the clock:
- *   1. the sidebar toggle, alone;
- *   2. the thread's ⋯ menu, alone;
- *   3. one capsule with the right panel and the thread's actions;
- * and New thread alone at the bottom, above the home indicator.
- * The dock (tiers 1 and the bottom) is the script's; tiers 2 and 3 are bb's
- * own header controls, pinned into the strip.
+ * the Duo Apple lays bars out vertically in it. As in WhatsApp and Notes:
+ *   - top, below the clock: the open thread's actions (right panel,
+ *     archive, ⋯);
+ *   - bottom: the app's destinations as a vertical tab bar (Threads, Home,
+ *     Todo, More), then New thread alone above the home indicator.
+ * Every button is the script's own and taps bb's. bb's own controls can't
+ * be moved there: WebKit on the phone clips them with the thread's pane.
  */
 html[data-duo-layout][data-duo-strip] {
-  --duo-strip-top: 216px; /* below the clock and the network ring */
-  --duo-orb: 48px; /* a lone round button, as in Notes */
+  --duo-strip-top: 224px; /* below the clock, the network ring and the app's edge tab */
+  --duo-orb: 48px;
   --duo-tier-gap: 10px;
-  --duo-strip-x: calc(var(--duo-strip) / 2); /* the strip's center line, from the right edge */
+  --duo-strip-x: calc(var(--duo-strip) / 2); /* the strip's center line, from its edge */
   --duo-dock-bottom: max(12px, var(--duo-inset-bottom, 0px));
 }
 
@@ -228,7 +312,8 @@ html[data-duo-layout][data-duo-strip]:not([data-duo-strip-left]) main[data-sideb
   margin-right: var(--duo-strip) !important;
 }
 
-[data-duo-dock] {
+[data-duo-dock],
+[data-duo-sheet] {
   display: none;
 }
 
@@ -236,16 +321,16 @@ html[data-duo-layout][data-duo-strip] [data-duo-dock] {
   display: contents;
 }
 
-html[data-duo-layout][data-duo-strip] :is(
-    [data-duo-dock] > button,
-    [data-testid="app-page-header-content-row"] > div:first-child span:has(> button[aria-label="Thread actions"]),
-    [data-testid="app-page-header-content-row"] > div:last-child:has(button)
-  ) {
+html[data-duo-layout][data-duo-strip] [data-duo-dock] > div {
   position: fixed;
   z-index: 40;
   right: var(--duo-strip-x);
   translate: 50% 0;
-  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
   border-radius: 999px;
   background: var(--duo-glass);
   -webkit-backdrop-filter: var(--duo-glass-blur);
@@ -253,141 +338,152 @@ html[data-duo-layout][data-duo-strip] :is(
   box-shadow: 0 0 0 0.5px var(--duo-separator), var(--duo-glass-rim), var(--duo-glass-shadow);
 }
 
-/* Lone round buttons: tier 1, tier 2 and New thread. */
-html[data-duo-layout][data-duo-strip] :is(
-    [data-duo-dock] > button,
-    [data-testid="app-page-header-content-row"] > div:first-child span:has(> button[aria-label="Thread actions"])
-  ) {
+html[data-duo-layout][data-duo-strip] [data-duo-dock] > div[hidden],
+html[data-duo-layout][data-duo-strip] [data-duo-dock] button[hidden] {
+  display: none;
+}
+
+html[data-duo-layout][data-duo-strip] [data-duo-dock] button {
   display: grid;
   place-items: center;
-  width: var(--duo-orb);
-  height: var(--duo-orb);
-  color: var(--foreground);
-}
-
-html[data-duo-layout][data-duo-strip] [data-duo-dock] > button {
+  width: var(--duo-hit);
+  height: var(--duo-hit);
+  padding: 0;
   border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--foreground) 78%, transparent);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: scale 120ms ease-out;
+  transition: scale 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out;
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] > button:active {
+html[data-duo-layout][data-duo-strip] [data-duo-dock] button:active {
   scale: 0.92;
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] > button svg {
+/* The current tab and an open right panel: a filled pill, as in a tab bar. */
+html[data-duo-layout][data-duo-strip] [data-duo-dock] button[aria-pressed="true"] {
+  background: var(--duo-fill);
+  color: var(--foreground);
+}
+
+html[data-duo-layout][data-duo-strip] [data-duo-dock] button svg {
   width: 22px;
   height: 22px;
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] > [data-duo-dock-slot="top"] {
+html[data-duo-layout][data-duo-strip] [data-duo-dock-group="thread"] {
   top: var(--duo-strip-top);
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] > [data-duo-dock-slot="bottom"] {
+html[data-duo-layout][data-duo-strip] [data-duo-dock-group="compose"] {
   bottom: var(--duo-dock-bottom);
+  padding: 2px;
 }
 
-/* Tier 2: bb's ⋯ thread menu. */
-html[data-duo-layout][data-duo-strip] [data-testid="app-page-header-content-row"] > div:first-child span:has(> button[aria-label="Thread actions"]) {
-  top: calc(var(--duo-strip-top) + var(--duo-orb) + var(--duo-tier-gap));
+html[data-duo-layout][data-duo-strip] [data-duo-dock-group="compose"] button {
+  color: var(--foreground);
 }
 
-html[data-duo-layout][data-duo-strip] [data-testid="app-page-header-content-row"] button[aria-label="Thread actions"] {
-  width: var(--duo-orb);
-  height: var(--duo-orb);
-  border-radius: 999px;
+html[data-duo-layout][data-duo-strip] [data-duo-dock-group="tabs"] {
+  bottom: calc(var(--duo-dock-bottom) + var(--duo-hit) + 4px + var(--duo-tier-gap));
 }
 
-html[data-duo-layout][data-duo-strip] [data-testid="app-page-header-content-row"] button[aria-label="Thread actions"] svg {
-  width: 22px;
-  height: 22px;
-}
-
-/*
- * Pages without a thread header (home, plugin pages) float bb's right panel
- * button at the top right, under the clock here; it takes tier 2 instead.
- */
-html[data-duo-layout][data-duo-strip] div.fixed:has(> button:is([aria-label^="Show right panel"], [aria-label^="Hide right panel"])) {
-  /* bb's utility classes place it and win over plugin CSS without these. */
-  top: calc(var(--duo-strip-top) + var(--duo-orb) + var(--duo-tier-gap)) !important;
-  right: var(--duo-strip-x) !important;
-  translate: 50% 0;
-  margin: 0;
-  border-radius: 999px;
-  background: var(--duo-glass);
+/* More: a glass sheet beside the strip, bottom-aligned with its button. */
+html[data-duo-layout][data-duo-strip] [data-duo-sheet]:not([hidden]) {
+  position: fixed;
+  z-index: 41;
+  right: calc(var(--duo-strip) + 4px);
+  bottom: var(--duo-sheet-bottom, 120px);
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--background) 82%, transparent);
   -webkit-backdrop-filter: var(--duo-glass-blur);
   backdrop-filter: var(--duo-glass-blur);
   box-shadow: 0 0 0 0.5px var(--duo-separator), var(--duo-glass-rim), var(--duo-glass-shadow);
 }
 
-html[data-duo-layout][data-duo-strip] div.fixed > button:is([aria-label^="Show right panel"], [aria-label^="Hide right panel"]) {
-  width: var(--duo-orb);
-  height: var(--duo-orb);
-  border-radius: 999px;
+[data-duo-sheet] button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--duo-hit, 44px);
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: var(--duo-body, 17px);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
 }
 
-html[data-duo-layout][data-duo-strip] div.fixed > button:is([aria-label^="Show right panel"], [aria-label^="Hide right panel"]) svg {
+[data-duo-sheet] button:active {
+  background: var(--duo-fill);
+}
+
+[data-duo-sheet] button svg {
   width: 22px;
   height: 22px;
+  flex: none;
 }
 
 /*
- * Tier 3: the right panel on top, then the thread's actions. It scrolls
- * rather than run into New thread if plugins add more actions.
+ * bb's own controls that the dock now stands in for leave the screen: the
+ * header's action capsule, the floating right panel button on pages
+ * without a header, the corner sidebar toggle, Back and Forward, and the
+ * icon rail with Settings (its items are in the tab bar and More). The
+ * buttons stay in the page so the dock can tap them.
  */
-html[data-duo-layout][data-duo-strip] [data-testid="app-page-header-content-row"] > div:last-child:has(button) {
-  top: calc(var(--duo-strip-top) + 2 * (var(--duo-orb) + var(--duo-tier-gap)));
-  max-height: calc(
-    100dvh - var(--duo-strip-top) - 3 * (var(--duo-orb) + var(--duo-tier-gap)) - var(--duo-dock-bottom)
-  );
-  overflow-y: auto;
-  scrollbar-width: none;
-  flex-direction: column-reverse;
-  justify-content: flex-end;
-  width: var(--duo-orb);
-  height: auto;
-  padding: 2px 0;
-  gap: 0;
+html[data-duo-layout][data-duo-strip] :is(
+    [data-testid="app-page-header-content-row"] > div:last-child:has(button),
+    div.fixed:has(> button[aria-label^="Show right panel"]),
+    [data-testid="app-sidebar-trigger-overlay"],
+    [data-testid="app-sidebar-top-reserve-row"] > div:last-child:has(button[aria-label="Go back"]),
+    [data-testid="sidebar-navigation-rail"],
+    [data-sidebar="sidebar"] > div > .col-start-1
+  ) {
+  display: none !important;
 }
 
-html[data-duo-layout][data-duo-strip] [data-testid="app-page-header-content-row"] > div:last-child button {
-  width: var(--duo-hit);
-  height: var(--duo-hit);
+/* bb's ⋯ stays under the dock's ⋯ (the script pins it) so its menu opens there. */
+html[data-duo-layout][data-duo-strip] [data-duo-pinned] {
+  position: fixed;
+  z-index: 39;
+  opacity: 0;
+  pointer-events: none;
 }
 
-/* bb nests the buttons in row-flex wrappers capped at 28px; stack them too. */
-html[data-duo-layout][data-duo-strip] [data-testid="app-page-header-content-row"] > div:last-child :is(div, span):not(button, button *) {
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  max-height: none;
-  max-width: none;
-  height: auto;
-  margin: 0;
+/*
+ * The right panel is an inspector column, 340pt beside the thread; the
+ * script hides the sidebar while it is open.
+ */
+html[data-duo-layout] [data-panel-id="thread-detail-secondary-panel"]:not([data-panel-size="0.0"]) {
+  flex: 0 0 340px !important;
+}
+
+html[data-duo-layout] [data-panel-group-id]:has(> [data-panel-id="thread-detail-secondary-panel"]:not([data-panel-size="0.0"])) > [data-panel-id="thread-detail-timeline-panel"] {
+  flex: 1 1 0 !important;
 }
 
 /*
  * The strip on the left (the phone turned the other way) sits over the
- * sidebar. The same toolbar moves into it, mirrored; the sidebar's pane
- * starts after it, and a hidden sidebar leaves the thread's pane clear of
- * it. bb's own sidebar toggle in the corner would sit under the clock; the
- * dock's toggle replaces it.
+ * sidebar. The dock moves into it, mirrored; the sidebar's pane starts
+ * after it, and a hidden sidebar leaves the thread's pane clear of it.
  */
-html[data-duo-layout][data-duo-strip-left] :is(
-    [data-duo-dock] > button,
-    [data-testid="app-page-header-content-row"] > div:first-child span:has(> button[aria-label="Thread actions"]),
-    [data-testid="app-page-header-content-row"] > div:last-child:has(button),
-    div.fixed:has(> button:is([aria-label^="Show right panel"], [aria-label^="Hide right panel"]))
-  ) {
-  left: calc(var(--duo-strip) / 2) !important;
-  right: auto !important;
+html[data-duo-layout][data-duo-strip-left] [data-duo-dock] > div {
+  left: var(--duo-strip-x);
+  right: auto;
   translate: -50% 0;
 }
 
-html[data-duo-layout][data-duo-strip-left] [data-sidebar="trigger"] {
-  visibility: hidden;
+html[data-duo-layout][data-duo-strip-left] [data-duo-sheet]:not([hidden]) {
+  left: calc(var(--duo-strip) + 4px);
+  right: auto;
 }
 
 html[data-duo-layout][data-duo-strip-left] [data-collapsible][data-side="left"] > * {
@@ -399,7 +495,6 @@ html[data-duo-layout][data-duo-strip-left] [data-sidebar="panel"] > [data-sideba
   width: calc(100% - var(--duo-strip) - 2 * var(--duo-gap));
 }
 
-html[data-duo-layout][data-duo-strip-left] [data-collapsible="offcanvas"][data-state="collapsed"] ~ main[data-sidebar="inset"],
 html[data-duo-layout][data-duo-strip-left] [data-collapsible][data-state="collapsed"] ~ main[data-sidebar="inset"] {
   margin-left: var(--duo-strip) !important;
 }
@@ -449,4 +544,13 @@ html[data-duo-layout] :has(> [data-testid="root-compose-compact-home"]) {
 
 html[data-duo-layout] [data-testid="root-compose-compact-home"] {
   margin-top: auto;
+}
+
+/* With the strip on, the collapsed sidebar is not a rail of icons (the dock has
+   them) but gone: the thread and its inspector get the whole width. */
+html[data-duo-strip] [data-collapsible="rail"][data-state="collapsed"],
+html[data-duo-strip] [data-collapsible="rail"][data-state="collapsed"] > [data-sidebar="panel"] {
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
 }

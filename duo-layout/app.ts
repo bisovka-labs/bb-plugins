@@ -13,8 +13,8 @@
 // script reads both and keeps the larger. With the strip on the right it sets
 // `html[data-duo-strip]` and adds a dock there: like Notes and Apple's
 // vertical toolbars on the Duo, the controls sit in the strip under the clock,
-// the sidebar toggle first and New thread alone at the bottom; app.css moves
-// the thread's own header actions in between. With the strip on the left
+// the sidebar toggle and Back first and New thread alone at the bottom;
+// app.css moves the thread's own header actions in between. With the strip on the left
 // (the phone turned the other way) it also sets `html[data-duo-strip-left]`:
 // the same toolbar moves to that strip and the sidebar starts after it.
 //
@@ -33,8 +33,10 @@ const STRIP_LEFT = "data-duo-strip-left";
 const STRIP_MIN_PX = 56; // narrower insets (a notch's sliver) stay empty
 const DECIDE_PX = 10; // movement before choosing between swipe and scroll
 const TOGGLE_PX = 72; // horizontal travel that moves one pane
+const EDGE_PX = 24; // touches starting this close to the left edge stay with iOS
+const BOTTOM_EDGE_PX = 40; // and this close to the bottom (home indicator)
 const IGNORE =
-  'input, textarea, select, [contenteditable="true"], [role="slider"], [role="dialog"], [role="menu"], [data-vaul-drawer], [data-vaul-no-drag], pre, table, [data-duo-dock]';
+  'input, textarea, select, [contenteditable="true"], [role="slider"], [role="dialog"], [role="menu"], [data-vaul-drawer], [data-vaul-no-drag], pre, table, [data-duo-dock], [data-duo-sheet]';
 
 type Insets = { top: number; right: number; bottom: number; left: number };
 type Native = {
@@ -45,11 +47,15 @@ type Native = {
 };
 type Swipe = { id: number; x0: number; y0: number; horizontal: boolean | null; inSidebar: boolean };
 
+// Lucide glyphs (ISC), drawn at 22pt in the dock.
 const ICONS = {
-  // lucide panel-left
-  sidebar:
-    '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
-  // lucide square-pen
+  threads: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
+  panel: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>',
+  archive:
+    '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  todo: '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
+  grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   compose:
     '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>',
 };
@@ -129,18 +135,63 @@ function newThread() {
   );
 }
 
-function dockButton(label: string, icon: string, slot: string, action: () => void) {
+/** bb's own element, never the dock's proxy that carries the same label. */
+const find = (selector: string) =>
+  [...document.querySelectorAll<HTMLElement>(selector)].find((el) => !el.closest("[data-duo-dock]")) ?? null;
+const PANEL = '[data-panel-id="thread-detail-secondary-panel"]';
+const HEADER = '[data-testid="app-page-header-content-row"]';
+const THREAD_MENU = `${HEADER} button[aria-label="Thread actions"]`;
+const ARCHIVE = 'button[aria-label="Archive thread"]';
+const railButton = (label: string) => find(`[data-testid="app-nav-rail"] button[aria-label="${label}"]`);
+
+/** bb's menus (Radix) open on a primary pointerdown, not on click. */
+function openMenu(trigger: HTMLElement | null) {
+  trigger?.dispatchEvent(
+    new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, pointerType: "mouse", isPrimary: true }),
+  );
+}
+
+function togglePanel() {
+  (panelOpen() ? panelToggle("Hide") : panelToggle("Show"))?.click();
+}
+
+/**
+ * A dock button that stands in for one of bb's own. bb's controls can't be
+ * moved into the strip: WebKit on the phone clips them with the thread's
+ * pane. So the dock draws its own and taps bb's.
+ */
+type DockItem = {
+  label: string;
+  icon: string;
+  run: () => void;
+  present?: () => boolean;
+  pressed?: () => boolean;
+};
+
+function dockButton(item: DockItem) {
   const button = document.createElement("button");
   button.type = "button";
-  button.setAttribute("aria-label", label);
-  button.title = label;
-  button.dataset.duoDockSlot = slot;
-  button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>`;
+  button.setAttribute("aria-label", item.label);
+  button.title = item.label;
+  button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${item.icon}</svg>`;
   button.addEventListener("click", () => {
     haptic();
-    action();
+    item.run();
   });
-  return button;
+  const refresh = () => {
+    button.hidden = item.present ? !item.present() : false;
+    if (item.pressed) button.setAttribute("aria-pressed", String(item.pressed()));
+  };
+  return { button, refresh };
+}
+
+/** Destinations without a tab of their own: bb's rail items and Settings. */
+function moreTargets() {
+  const rail = [...document.querySelectorAll<HTMLElement>('[data-testid="app-nav-rail"] button[aria-label]')].filter(
+    (b) => !["Home", "Todo", "More"].includes(b.getAttribute("aria-label") ?? ""),
+  );
+  const settings = find('button[aria-label^="Settings"]');
+  return settings ? [...rail, settings] : rail;
 }
 
 function mount({ signal }: { signal: AbortSignal }) {
@@ -152,11 +203,149 @@ function mount({ signal }: { signal: AbortSignal }) {
   dock.setAttribute("role", "toolbar");
   dock.setAttribute("aria-label", "Duo");
   dock.setAttribute("aria-orientation", "vertical");
+
+  // "More": a small sheet beside the strip with the remaining destinations.
+  const sheet = document.createElement("div");
+  sheet.dataset.duoSheet = "";
+  sheet.setAttribute("role", "menu");
+  sheet.hidden = true;
+  const closeSheet = () => (sheet.hidden = true);
+  const openSheet = (anchor: HTMLElement) => {
+    sheet.replaceChildren(
+      ...moreTargets().map((target) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.setAttribute("role", "menuitem");
+        const icon = target.querySelector("svg")?.cloneNode(true);
+        if (icon) row.append(icon);
+        const label = document.createElement("span");
+        label.textContent = (target.getAttribute("aria-label") ?? "").replace(/\s*\(.*\)$/, "");
+        row.append(label);
+        row.addEventListener("click", () => {
+          haptic();
+          closeSheet();
+          target.click();
+        });
+        return row;
+      }),
+    );
+    const r = anchor.getBoundingClientRect();
+    sheet.style.setProperty("--duo-sheet-bottom", `${Math.round(window.innerHeight - r.bottom)}px`);
+    sheet.hidden = false;
+  };
+
+  const items: { button: HTMLButtonElement; refresh: () => void }[] = [];
+  const group = (name: string, ...list: DockItem[]) => {
+    const div = document.createElement("div");
+    div.dataset.duoDockGroup = name;
+    for (const item of list) {
+      const made = dockButton(item);
+      items.push(made);
+      div.append(made.button);
+    }
+    return div;
+  };
+  const route = (label: string) => () => railButton(label)?.getAttribute("aria-current") === "page";
+  const moreItem: DockItem = {
+    label: "More",
+    icon: ICONS.grid,
+    run: () => {
+      const anchor = dock.querySelector<HTMLElement>('[aria-label="More"]');
+      if (!sheet.hidden || !anchor) closeSheet();
+      else openSheet(anchor);
+    },
+    present: () => moreTargets().length > 0,
+  };
   dock.append(
-    dockButton("Toggle sidebar", ICONS.sidebar, "top", toggleSidebar),
-    dockButton("New thread", ICONS.compose, "bottom", newThread),
+    group(
+      "thread",
+      { label: "Right panel", icon: ICONS.panel, run: togglePanel, present: () => !!(find(PANEL) || find(THREAD_MENU)), pressed: panelOpen },
+      { label: "Archive thread", icon: ICONS.archive, run: () => find(ARCHIVE)?.click(), present: () => !!find(ARCHIVE) },
+      { label: "Thread actions", icon: ICONS.more, run: () => openMenu(find(THREAD_MENU)), present: () => !!find(THREAD_MENU) },
+    ),
+    group(
+      "tabs",
+      // bb's Home is the threads area itself, so one tab covers both: from Todo or
+      // a More destination it goes home, and at home it shows or hides the list.
+      {
+        label: "Threads",
+        icon: ICONS.threads,
+        run: () => {
+          const home = railButton("Home");
+          if (home && home.getAttribute("aria-current") !== "page") home.click();
+          else toggleSidebar();
+        },
+        pressed: () => (railButton("Home") ? route("Home")() && sidebarOpen() : sidebarOpen()),
+      },
+      { label: "Todo", icon: ICONS.todo, run: () => railButton("Todo")?.click(), present: () => !!railButton("Todo"), pressed: route("Todo") },
+      moreItem,
+    ),
+    group("compose", { label: "New thread", icon: ICONS.compose, run: newThread }),
   );
-  document.body.appendChild(dock);
+  document.body.append(dock, sheet);
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (sheet.hidden) return;
+      const t = e.target as Element | null;
+      if (t && (sheet.contains(t) || t.closest('[data-duo-dock] [aria-label="More"]'))) return;
+      closeSheet();
+    },
+    { capture: true, signal },
+  );
+
+  // bb's ⋯ menu anchors to its own button, which the phone doesn't paint in
+  // the strip. Keep it, invisible, under the dock's ⋯ so the menu opens there.
+  const pinThreadMenu = () => {
+    const theirs = find(THREAD_MENU)?.parentElement;
+    const ours = dock.querySelector<HTMLElement>('[aria-label="Thread actions"]');
+    if (!theirs) return;
+    if (!root.hasAttribute(STRIP) || !ours || ours.hidden) {
+      theirs.removeAttribute("data-duo-pinned");
+      for (const p of ["top", "left", "width", "height"]) theirs.style.removeProperty(p);
+      return;
+    }
+    const r = ours.getBoundingClientRect();
+    theirs.setAttribute("data-duo-pinned", "");
+    theirs.style.setProperty("top", `${r.top}px`, "important");
+    theirs.style.setProperty("left", `${r.left}px`, "important");
+    theirs.style.setProperty("width", `${r.width}px`, "important");
+    theirs.style.setProperty("height", `${r.height}px`, "important");
+  };
+
+  // The right panel is an inspector column: opening it hides the sidebar,
+  // closing it brings the sidebar back if it was open, as on iPad.
+  let panelWasOpen = panelOpen();
+  let restoreSidebar = false;
+  const followPanel = () => {
+    const open = panelOpen();
+    if (open === panelWasOpen) return;
+    panelWasOpen = open;
+    if (!root.hasAttribute(MARK)) return;
+    if (open && sidebarOpen()) {
+      restoreSidebar = true;
+      toggleSidebar();
+    } else if (!open) {
+      if (restoreSidebar && !sidebarOpen()) toggleSidebar();
+      restoreSidebar = false;
+    }
+  };
+
+  let frame = 0;
+  const refresh = () => {
+    frame = 0;
+    for (const item of items) item.refresh();
+    for (const g of dock.querySelectorAll<HTMLElement>("[data-duo-dock-group]")) {
+      g.hidden = ![...g.querySelectorAll("button")].some((b) => !b.hidden);
+    }
+    followPanel();
+    pinThreadMenu();
+  };
+  const observer = new MutationObserver(() => {
+    if (!frame) frame = requestAnimationFrame(refresh);
+  });
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-state", "data-panel-size", "aria-current", "aria-label"] });
+  signal.addEventListener("abort", () => observer.disconnect());
 
   const sync = () => {
     const wide = query.matches;
@@ -167,6 +356,7 @@ function mount({ signal }: { signal: AbortSignal }) {
     root.toggleAttribute(STRIP_LEFT, onLeft);
     root.style.setProperty("--duo-strip", `${onLeft ? left : right}px`);
     root.style.setProperty("--duo-inset-bottom", `${bottom}px`);
+    refresh();
   };
   sync();
   query.addEventListener("change", sync, { signal });
@@ -194,6 +384,8 @@ function mount({ signal }: { signal: AbortSignal }) {
     if (!pane || insideScrollableX(target, pane)) return;
     if (!(window.getSelection()?.isCollapsed ?? true)) return;
     const t = e.touches[0];
+    // Screen edges belong to iOS: back from the left edge, home at the bottom.
+    if (t.clientX < EDGE_PX || t.clientY > window.innerHeight - BOTTOM_EDGE_PX) return;
     swipe = {
       id: t.identifier,
       x0: t.clientX,
@@ -222,7 +414,10 @@ function mount({ signal }: { signal: AbortSignal }) {
     if (e.cancelable) e.preventDefault();
   };
 
-  /** One step along sidebar | thread | right panel; false when there is none. */
+  /**
+   * Left over the thread opens the right panel; right closes it, or brings
+   * the sidebar back. Left over the sidebar hides it.
+   */
   const step = (dx: number, inSidebar: boolean) => {
     if (inSidebar) {
       if (dx > -TOGGLE_PX || !sidebarOpen()) return false;
@@ -230,9 +425,8 @@ function mount({ signal }: { signal: AbortSignal }) {
       return true;
     }
     if (dx <= -TOGGLE_PX) {
-      if (sidebarOpen()) toggleSidebar();
-      else if (!panelOpen() && panelToggle("Show")) panelToggle("Show")!.click();
-      else return false;
+      if (panelOpen() || !panelToggle("Show")) return false;
+      panelToggle("Show")!.click();
       return true;
     }
     if (dx >= TOGGLE_PX) {
@@ -264,8 +458,12 @@ function mount({ signal }: { signal: AbortSignal }) {
 
   return () => {
     window.clearTimeout(timer);
+    if (frame) cancelAnimationFrame(frame);
     unsubscribe?.();
+    root.removeAttribute(STRIP);
+    pinThreadMenu();
     dock.remove();
+    sheet.remove();
     root.removeAttribute(MARK);
     root.removeAttribute(STRIP);
     root.removeAttribute(STRIP_LEFT);
