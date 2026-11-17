@@ -343,8 +343,22 @@ function mount({ signal }: { signal: AbortSignal }) {
   };
 
   let frame = 0;
+  // One thread at a time on this screen. bb keeps a split layout across
+  // reloads, so a split made before (or by a stray drag) is closed down to
+  // the pane in focus, through bb's own Close pane button.
+  const singlePane = () => {
+    if (!root.hasAttribute(MARK)) return;
+    const panes = document.querySelectorAll<HTMLElement>("[data-split-pane-id]");
+    if (panes.length < 2) return;
+    const keep = [...panes].find((p) => p.dataset.focused === "true") ?? panes[0];
+    for (const pane of panes) {
+      if (pane !== keep) pane.querySelector<HTMLElement>('button[aria-label="Close pane"]')?.click();
+    }
+  };
+
   const refresh = (force = false) => {
     frame = 0;
+    singlePane();
     for (const item of items) item.refresh();
     for (const g of dock.querySelectorAll<HTMLElement>("[data-duo-dock-group]")) {
       const hidden = ![...g.querySelectorAll("button")].some((b) => !b.hidden);
@@ -468,6 +482,19 @@ function mount({ signal }: { signal: AbortSignal }) {
     if (e.cancelable) e.preventDefault();
     if (step(t.clientX - done.x0, done.inSidebar)) haptic();
   };
+
+  // bb opens a thread in a split when its sidebar row is dragged onto the
+  // thread. A finger sliding over a row does exactly that, so on touch a
+  // press in the sidebar never reaches bb's drag. Taps still open threads
+  // (bb navigates on click) and row menus still open (they need pointerdown).
+  const noSplitDrag = (e: PointerEvent) => {
+    if (e.pointerType !== "touch" || !query.matches) return;
+    const target = e.target instanceof Element ? e.target : null;
+    if (!target?.closest('[data-sidebar="sidebar"]')) return;
+    if (target.closest('[aria-haspopup], [role="menuitem"], input, textarea, [contenteditable="true"]')) return;
+    e.stopPropagation();
+  };
+  window.addEventListener("pointerdown", noSplitDrag, { capture: true, signal });
 
   const capture = { capture: true, signal };
   window.addEventListener("touchstart", onStart, { ...capture, passive: true });
