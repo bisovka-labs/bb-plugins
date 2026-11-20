@@ -1,0 +1,36 @@
+{
+  "name": "bb-plugin-short-titles",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.50",
+    "bbPluginSdk": ">=0.6.157"
+  },
+  "bb": {
+    "name": "Short Titles",
+    "description": "Называет треды одним-двумя словами по сути задачи вместо длинных предложений, через любую OpenAI-совместимую модель (по умолчанию локальная Ollama).",
+    "branding": {
+      "icon": "Tag"
+    },
+    "server": "./server.ts",
+    "skills": [
+      "skills"
+    ]
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.157",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
+    "hono": "^4.13.13",
+    "typescript": "^5.7.0",
+    "zod": "^4.6.7"
+  },
+  "description": "One-or-two-word thread titles from any OpenAI-compatible model.",
+  "author": "Eugene Bisovka",
+  "scripts": {
+    "build": "bb plugin build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test titles.test.ts"
+  }
+}

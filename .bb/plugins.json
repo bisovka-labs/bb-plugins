@@ -68,6 +68,10 @@
       "source": "./safari"
     },
     {
+      "name": "short-titles",
+      "source": "./short-titles"
+    },
+    {
       "name": "sidebar-button",
       "source": "./sidebar-button"
     },
