@@ -1,0 +1,33 @@
+#!/bin/sh
+# ts-share — show a local server to your own devices over the tailnet
+# (a private replacement for `bb connect expose`).
+#   ts-share <port>       publish http://127.0.0.1:<port> at https://<this-mac>.<tailnet>.ts.net:<port>
+#   ts-share off <port>   stop publishing
+#   ts-share list         list published ports
+set -eu
+TS=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+[ -x "$TS" ] || TS=tailscale
+host=$("$TS" status --json | /usr/bin/python3 -c 'import json,sys;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')
+# Ports that front bb itself (setup/private-access.sh) or bb's own listeners. Add yours in TS_SHARE_RESERVED.
+reserved="443 17443 18080 38886 38887 38920 38921 ${TS_SHARE_RESERVED:-}"
+
+case "${1:-}" in
+  list)
+    "$TS" serve status 2>/dev/null | grep -E '^(https?|tcp)://' || echo "nothing published"
+    ;;
+  off)
+    p="${2:?usage: ts-share off <port>}"
+    case " $reserved " in *" $p "*) echo "port $p is reserved; not touching it" >&2; exit 2;; esac
+    "$TS" serve --https="$p" off >/dev/null && echo "stopped https://$host:$p"
+    ;;
+  ''|-h|--help)
+    sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+  *)
+    p="$1"
+    case "$p" in *[!0-9]*) echo "port must be a number" >&2; exit 2;; esac
+    case " $reserved " in *" $p "*) echo "port $p is reserved (bb or its gate); run the server on another port" >&2; exit 2;; esac
+    "$TS" serve --bg --https="$p" "http://127.0.0.1:$p" >/dev/null
+    echo "https://$host:$p"
+    ;;
+esac

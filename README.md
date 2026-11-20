@@ -3,6 +3,14 @@
 Every [bb](https://getbb.app) plugin and improvement by Eugene Bisovka, in one
 repository that is also a bb marketplace.
 
+## Set up bb the way I use it
+
+[`SETUP.md`](SETUP.md) is a step-by-step guide for an agent (in Russian): my plugins, the
+third-party plugins I use daily, Russian voice input, and private phone access to bb over
+Tailscale that keeps working under a VPN. Give your agent this link:
+`https://raw.githubusercontent.com/bisovka-labs/bb-plugins/main/SETUP.md`.
+Scripts it uses live in [`setup/`](setup/).
+
 ## Install
 
 Add the marketplace once; the plugins then show up in bb's plugin store:
@@ -28,10 +36,13 @@ scripts/install.sh todo openui  # only these
 | `agent-stats` | Shareable story cards with your agent sessions and tokens. |
 | `blur-titles` | Sidebar button that blurs thread titles for screenshots. |
 | `context-folder` | Attach an extra folder or bb project to a message as context. |
+| `copy-code` | Tap inline code in a chat message to copy it. |
 | `copy-file` | Copy file button in the file viewer (macOS clipboard). |
 | `copy-image` | Right-click an image in the desktop app to copy it. |
 | `dictation-pause` | Pauses Mac music while you dictate in bb. |
+| `duo-layout` | Wide touch screens (unfolded phone, iPad): finger-sized controls. |
 | `handoff` | Move a session between agents and machines (fork of [vburojevic's Handoff](https://github.com/vburojevic/bb-plugin-handoff)). |
+| `hide-empty-projects` | Projects without active threads hide from the thread list. |
 | `image-zoom` | Zoom and pan in bb's image viewer. |
 | `openui` | Renders OpenUI generative UI inline in assistant messages. |
 | `phone-dictation` | iPhone Action button starts a bb thread from speech. |
