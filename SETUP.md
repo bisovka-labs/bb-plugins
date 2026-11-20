@@ -141,11 +141,10 @@ bb marketplace list   # запомни имя этого маркетплейс�
 | `san-francisco` | спокойная тема в стиле macOS |
 | `voice-input` | запасная диктовка (Parakeet на нейродвижке Мака, 25 языков) |
 
-Из каталога bb-community (его проверяет команда bb):
+Из каталога bb-community (его проверяет команда bb) беру диктовку на русском:
 
 | Плагин | Автор | Зачем |
 | --- | --- | --- |
-| `followups` | MacHatter1 | после ответа агента предлагает следующие шаги одной кнопкой |
 | `gigaam` | AiXenix | диктовка на русском моделью GigaAM v3 прямо на Маке, без облака |
 
 После «да» человека (`sf-plugins` замени на имя из `bb marketplace list`, если оно другое):
@@ -154,7 +153,6 @@ bb marketplace list   # запомни имя этого маркетплейс�
 for id in superhuman bookmarks annotate resource-monitor auto-update san-francisco voice-input; do
   bb plugin install "$id@sf-plugins" --yes || echo "НЕ ВСТАЛ: $id"
 done
-bb plugin install followups --yes
 bb plugin install gigaam --yes
 ```
 
