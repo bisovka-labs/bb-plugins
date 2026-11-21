@@ -12,9 +12,20 @@
  * Selectors target bb's own markup, which isn't a versioned API; when a bb
  * update changes it, that part falls back to bb's desktop look.
  */
-html[data-duo-layout] {
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) {
   --duo-hit: 44px; /* minimum touch target */
-  --duo-body: 17px; /* body text at the default Dynamic Type size */
+  --duo-body: 15px; /* message text, the same size as the list */
+  --duo-sidebar-text: 15px;
+  --duo-sidebar-label: 13px;
+  --duo-rail-button: 28px; /* the icon rail without the strip (iPad) */
+  --duo-rail-icon: 16px;
+  /* На Duo в альбомной полосы значков нет: кнопки меню — в колонке у края экрана и внизу списка. */
+  /* Telegram on the Duo, measured from screenshots: 48pt circles at the edge, 44pt bars, 24pt icons. */
+  --duo-dock-button: 48px;
+  --duo-strip-footer-button: 44px;
+  --duo-dock-icon: 24px;
+  --tg-bar: 44px;
+  --tg-gap: 12px;
   --duo-gap: 6px; /* space between the two floating panes and the screen edge */
   --duo-pane-radius: 22px;
   /*
@@ -44,8 +55,13 @@ html[data-duo-layout] {
  * goes to 17px. 16px or more also keeps iOS from zooming the page when a
  * field takes focus.
  */
-html[data-duo-layout] :is([data-message-column], [data-markdown-preview], [data-promptbox-editor-scroll]) {
+html[data-duo-layout] :is([data-message-column], [data-markdown-preview]) {
   font-size: var(--duo-body);
+}
+
+/* The composer stays at 16px or more so iOS doesn't zoom when it takes focus. */
+html[data-duo-layout] [data-promptbox-editor-scroll] {
+  font-size: max(var(--duo-body), 16px);
 }
 
 html[data-duo-layout] :is(input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, select) {
@@ -102,7 +118,7 @@ html[data-duo-layout] :is([data-testid="sidebar-navigation-rail"], [data-sidebar
 
 /* Section headers: 15pt semibold, as tall as a compact row. */
 html[data-duo-layout] [data-sidebar="group-label"] {
-  font-size: 15px;
+  font-size: var(--duo-sidebar-label);
   font-weight: 600;
   min-height: 36px;
 }
@@ -113,7 +129,7 @@ html[data-duo-layout] [data-sidebar="panel"] {
 }
 
 html[data-duo-layout] [data-sidebar-rename-row] {
-  font-size: var(--duo-body);
+  font-size: var(--duo-sidebar-text);
   border-radius: 10px;
 }
 
@@ -220,21 +236,21 @@ html[data-duo-layout] [data-sidebar="footer"] > ul > li:first-child {
 }
 
 html[data-duo-layout] [data-sidebar="footer"] [data-sidebar="menu-button"] {
-  width: 44px;
-  height: 44px;
+  width: calc(var(--duo-rail-button) + 4px);
+  height: calc(var(--duo-rail-button) + 4px);
   justify-content: center;
   border-radius: 12px;
 }
 
 html[data-duo-layout] [data-sidebar="footer"] [data-sidebar="menu-button"] svg,
 html[data-duo-layout] button[aria-label^="Settings"] svg {
-  width: 22px;
-  height: 22px;
+  width: var(--duo-rail-icon);
+  height: var(--duo-rail-icon);
 }
 
 html[data-duo-layout] button[aria-label^="Settings"] {
-  width: 40px;
-  height: 40px;
+  width: var(--duo-rail-button);
+  height: var(--duo-rail-button);
   border-radius: 12px;
 }
 
@@ -284,14 +300,14 @@ html[data-duo-layout] [data-testid="app-nav-rail"] > div:first-child {
 }
 
 html[data-duo-layout] [data-testid="app-nav-rail"] button {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: var(--duo-rail-button);
+  height: var(--duo-rail-button);
+  border-radius: 10px;
 }
 
 html[data-duo-layout] [data-testid="app-nav-rail"] button svg {
-  width: 22px;
-  height: 22px;
+  width: var(--duo-rail-icon);
+  height: var(--duo-rail-icon);
 }
 
 /* ---------- Toolbar: actions in one glass capsule ---------- */
@@ -331,7 +347,7 @@ html[data-duo-layout] [data-testid="app-page-header-content-row"] > div:last-chi
  * Every button is the script's own and taps bb's. bb's own controls can't
  * be moved there: WebKit on the phone clips them with the thread's pane.
  */
-html[data-duo-layout][data-duo-strip] {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) {
   --duo-strip-top: 224px; /* below the clock, the network ring and the app's edge tab */
   --duo-orb: 48px;
   --duo-tier-gap: 10px;
@@ -349,11 +365,11 @@ html[data-duo-layout][data-duo-strip]:not([data-duo-strip-left]) main[data-sideb
   display: none;
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] {
   display: contents;
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] > div {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] > div {
   position: fixed;
   z-index: 40;
   right: var(--duo-strip-x);
@@ -370,16 +386,16 @@ html[data-duo-layout][data-duo-strip] [data-duo-dock] > div {
   box-shadow: 0 0 0 0.5px var(--duo-separator), var(--duo-glass-rim), var(--duo-glass-shadow);
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] > div[hidden],
-html[data-duo-layout][data-duo-strip] [data-duo-dock] button[hidden] {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] > div[hidden],
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] button[hidden] {
   display: none;
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] button {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] button {
   display: grid;
   place-items: center;
-  width: var(--duo-hit);
-  height: var(--duo-hit);
+  width: var(--duo-dock-button);
+  height: var(--duo-dock-button);
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -390,40 +406,40 @@ html[data-duo-layout][data-duo-strip] [data-duo-dock] button {
   transition: scale 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out;
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] button:active {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] button:active {
   scale: 0.92;
 }
 
 /* The current tab and an open right panel: a filled pill, as in a tab bar. */
-html[data-duo-layout][data-duo-strip] [data-duo-dock] button[aria-pressed="true"] {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] button[aria-pressed="true"] {
   background: var(--duo-fill);
   color: var(--foreground);
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock] button svg {
-  width: 22px;
-  height: 22px;
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] button svg {
+  width: var(--duo-dock-icon);
+  height: var(--duo-dock-icon);
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock-group="thread"] {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock-group="thread"] {
   top: var(--duo-strip-top);
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock-group="compose"] {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock-group="compose"] {
   bottom: var(--duo-dock-bottom);
   padding: 2px;
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock-group="compose"] button {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock-group="compose"] button {
   color: var(--foreground);
 }
 
-html[data-duo-layout][data-duo-strip] [data-duo-dock-group="tabs"] {
-  bottom: calc(var(--duo-dock-bottom) + var(--duo-hit) + 4px + var(--duo-tier-gap));
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock-group="tabs"] {
+  bottom: calc(var(--duo-dock-bottom) + var(--duo-dock-button) + 4px + var(--duo-tier-gap));
 }
 
 /* More: a glass sheet beside the strip, bottom-aligned with its button. */
-html[data-duo-layout][data-duo-strip] [data-duo-sheet]:not([hidden]) {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-sheet]:not([hidden]) {
   position: fixed;
   z-index: 41;
   right: calc(var(--duo-strip) + 4px);
@@ -483,7 +499,7 @@ html[data-duo-layout][data-duo-strip] :is(
 }
 
 /* bb's ⋯ stays under the dock's ⋯ (the script pins it) so its menu opens there. */
-html[data-duo-layout][data-duo-strip] [data-duo-pinned] {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-pinned] {
   position: fixed;
   z-index: 39;
   opacity: 0;
@@ -527,13 +543,13 @@ html[data-duo-layout] [data-panel-group-id]:has(> [data-panel-id="thread-detail-
  * sidebar. The dock moves into it, mirrored; the sidebar's pane starts
  * after it, and a hidden sidebar leaves the thread's pane clear of it.
  */
-html[data-duo-layout][data-duo-strip-left] [data-duo-dock] > div {
+html[data-duo-strip-left]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] > div {
   left: var(--duo-strip-x);
   right: auto;
   translate: -50% 0;
 }
 
-html[data-duo-layout][data-duo-strip-left] [data-duo-sheet]:not([hidden]) {
+html[data-duo-strip-left]:is([data-duo-layout], [data-duo-compact]) [data-duo-sheet]:not([hidden]) {
   left: calc(var(--duo-strip) + 4px);
   right: auto;
 }
@@ -562,8 +578,21 @@ html[data-duo-layout] [data-scroll-footer] > .bg-background {
   background: linear-gradient(
     to bottom,
     transparent,
-    color-mix(in srgb, var(--background) 85%, transparent) 55%
+    color-mix(in srgb, var(--background) 85%, transparent) 55%,
+    /* the row under the box (project, machine, branch) stays solid so the thread doesn't show through it */
+    var(--background) calc(100% - 56px)
   );
+}
+
+/*
+ * Questions in the right half ran over other text. A
+ * question card above the message box (bb's pending-interaction shell) is
+ * tinted with the translucent --surface-recessed and relies on bb's opaque
+ * footer; with the footer faded above, the thread showed through the
+ * question. bb's own opaque twin keeps the same look over the page.
+ */
+html[data-duo-layout] [data-scroll-footer] .bg-surface-recessed.rounded-lg.border {
+  background-color: var(--surface-recessed-solid);
 }
 
 html[data-duo-layout] form[data-promptbox] {
@@ -638,12 +667,12 @@ html[data-duo-layout] [data-duo-sheet]:not([hidden]) {
   animation: duo-pop 220ms var(--duo-ease);
 }
 
-html[data-duo-layout][data-duo-strip-left] [data-duo-sheet]:not([hidden]) {
+html[data-duo-strip-left]:is([data-duo-layout], [data-duo-compact]) [data-duo-sheet]:not([hidden]) {
   transform-origin: bottom left;
 }
 
 /* Dock pills fade between states instead of snapping. */
-html[data-duo-layout][data-duo-strip] [data-duo-dock] button {
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] button {
   transition: scale 160ms var(--duo-ease), background-color 200ms var(--duo-ease), color 200ms var(--duo-ease);
 }
 
@@ -671,14 +700,14 @@ html[data-duo-strip] [data-sidebar="footer"] {
 }
 
 html[data-duo-strip] [data-sidebar="footer"] [data-sidebar="menu-button"] {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: var(--duo-strip-footer-button);
+  height: var(--duo-strip-footer-button);
+  border-radius: 10px;
 }
 
 html[data-duo-strip] [data-sidebar="footer"] [data-sidebar="menu-button"] svg {
-  width: 26px;
-  height: 26px;
+  width: var(--duo-dock-icon);
+  height: var(--duo-dock-icon);
 }
 
 /*
@@ -695,7 +724,7 @@ html[data-duo-layout] :is([role="menuitem"], [role="menuitemcheckbox"], [role="m
   min-height: 44px !important;
   padding-inline: 12px !important;
   gap: 12px !important;
-  font-size: 17px !important;
+  font-size: 17px !important; /* menus stay larger than body text, as asked */
   border-radius: 10px !important;
 }
 
@@ -706,4 +735,353 @@ html[data-duo-layout] :is([role="menuitem"], [role="menuitemcheckbox"], [role="m
 
 html[data-duo-layout] :is([role="menu"], [role="listbox"]) [role="separator"] {
   margin-block: 6px !important;
+}
+
+/* ---------- Telegram proportions, all four Duo poses ---------- */
+
+/*
+ * The proportions of the new Telegram (iOS 26): measured on its screenshots on
+ * the Duo (1 pt = 3 px): 48pt glass circles at the edge, a vertical tab capsule,
+ * the main action a filled circle, 44pt bars, the title centred in a capsule.
+ * Colours, wallpaper and type stay bb's. Apple (Design for iPhone Duo, Sep 2026):
+ * controls go to the side strip in every pose except the open phone upright,
+ * which keeps bars at the top and bottom.
+ */
+:root {
+  --tg-glass-shadow: 0 0 0 0.5px var(--duo-separator), var(--duo-glass-rim), var(--duo-glass-shadow);
+}
+
+/* The edge column: the thread's actions are separate glass circles, not one capsule. */
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] > div:is([data-duo-dock-group="thread"], [data-duo-dock-group="compose"]) {
+  gap: var(--tg-gap);
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] > div:is([data-duo-dock-group="thread"], [data-duo-dock-group="compose"]) button {
+  background: var(--duo-glass);
+  -webkit-backdrop-filter: var(--duo-glass-blur);
+  backdrop-filter: var(--duo-glass-blur);
+  box-shadow: var(--tg-glass-shadow);
+}
+
+/* New thread is the main action: a filled circle, bb's primary colour. */
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] > div[data-duo-dock-group="compose"] button {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+/* Tabs: a vertical capsule, the current tab filled. */
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] > div[data-duo-dock-group="tabs"] button {
+  width: calc(var(--duo-dock-button) - 8px);
+}
+
+html[data-duo-strip]:is([data-duo-layout], [data-duo-compact]) [data-duo-dock] > div[data-duo-dock-group="tabs"] {
+  padding: 4px;
+  gap: 4px;
+  bottom: calc(var(--duo-dock-bottom) + var(--duo-dock-button) + var(--tg-gap) + 4px);
+}
+
+/* The bar group is the upright open phone's own; the edge column never shows it. */
+html:not([data-duo-bars]) [data-duo-dock] > div[data-duo-dock-group="bar"] {
+  display: none !important;
+}
+
+/* Back's unread badge, as on Telegram's back button. */
+[data-duo-badge] {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--foreground);
+  color: var(--background);
+  font: 600 13px/22px -apple-system, system-ui, sans-serif;
+  text-align: center;
+  pointer-events: none;
+}
+
+[data-duo-badge][hidden] {
+  display: none;
+}
+
+[data-duo-dock] button {
+  position: relative;
+}
+
+/* Top of the list: New thread is a grey capsule, like Telegram's search. */
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) [data-testid="app-sidebar-top-reserve-row"] button[aria-label^="New thread"] {
+  height: var(--tg-bar);
+  border-radius: 999px;
+  background: var(--duo-fill);
+  padding-inline: 16px;
+}
+
+/* Bottom of the list: a floating glass tab bar across the list. */
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) div:has(> [data-sidebar="footer"]) {
+  width: 100% !important; /* bb writes it inline as 320 minus the rail */
+}
+
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) [data-sidebar="footer"] {
+  min-height: 0;
+  padding: 8px 12px 12px !important;
+}
+
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) [data-sidebar="footer"] > ul[data-sidebar="menu"] {
+  width: 100%;
+  height: calc(var(--tg-bar) + 8px);
+  padding: 4px 10px;
+  justify-content: space-around !important;
+  border-radius: 999px;
+  background: var(--duo-glass);
+  -webkit-backdrop-filter: var(--duo-glass-blur);
+  backdrop-filter: var(--duo-glass-blur);
+  box-shadow: var(--tg-glass-shadow);
+}
+
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) [data-sidebar="footer"] [data-sidebar="menu-button"] {
+  width: var(--tg-bar) !important;
+  height: var(--tg-bar) !important;
+  border-radius: 999px !important;
+}
+
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) [data-sidebar="footer"] [data-sidebar="menu-button"] svg {
+  width: var(--duo-dock-icon) !important;
+  height: var(--duo-dock-icon) !important;
+}
+
+/* The thread's title: centred in a 44pt glass capsule. */
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) [data-testid="app-page-header-content-row"] {
+  height: 60px;
+}
+
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) [data-testid="app-page-header-content-row"] > div:has(.bb-thread-title) {
+  flex: 1;
+  justify-content: center;
+}
+
+/*
+ * The glass is a layer behind the capsule, not the capsule's own backdrop-filter:
+ * a filter on the capsule would become the containing block of bb's ⋯ anchor,
+ * which app.ts pins position: fixed under the dock, and its menu would open off screen.
+ */
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) [data-testid="app-page-header-content-row"] div.pointer-events-auto:has(.bb-thread-title) {
+  position: relative;
+  isolation: isolate;
+  height: var(--tg-bar);
+  padding-inline: 18px;
+  border-radius: 999px;
+}
+
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) [data-testid="app-page-header-content-row"] div.pointer-events-auto:has(.bb-thread-title)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--duo-glass);
+  -webkit-backdrop-filter: var(--duo-glass-blur);
+  backdrop-filter: var(--duo-glass-blur);
+  box-shadow: var(--tg-glass-shadow);
+}
+
+html:is([data-duo-compact], [data-duo-bars]) [data-testid="app-page-header-content-row"] .bb-thread-title {
+  font-size: var(--duo-body);
+  font-weight: 600;
+}
+
+/* The message box: a capsule with round buttons. */
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) form[data-promptbox] {
+  border-radius: 26px;
+}
+
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) form[data-promptbox] button {
+  border-radius: 999px;
+}
+
+html:is([data-duo-layout], [data-duo-compact], [data-duo-bars]) form[data-promptbox] :is(button[aria-label="Start voice input"], button[aria-label="Prompt actions"]) {
+  width: 40px;
+  height: 40px;
+}
+
+/* Text on the narrow poses matches the open screen: 15, list 15 and 13, the box 16. */
+html:is([data-duo-compact], [data-duo-bars]) :is([data-message-column], [data-markdown-preview]) {
+  font-size: var(--duo-body);
+}
+
+html:is([data-duo-compact], [data-duo-bars]) [data-promptbox-editor-scroll] {
+  font-size: max(var(--duo-body), 16px);
+}
+
+html:is([data-duo-compact], [data-duo-bars]) [data-sidebar-rename-row] {
+  font-size: var(--duo-sidebar-text);
+}
+
+html:is([data-duo-compact], [data-duo-bars]) [data-sidebar="group-label"] {
+  font-size: var(--duo-sidebar-label);
+}
+
+/* ---------- Closed (narrow) with the side strip ---------- */
+
+/* Below the clock and the outer camera, where Telegram's Back sits. */
+html[data-duo-compact][data-duo-strip] {
+  --duo-strip-top: 180px;
+}
+
+/* The content stays beside the strip, never under the clock or the camera. */
+html[data-duo-compact] [data-testid="app-layout-root"] {
+  width: calc(100% - var(--duo-strip)) !important;
+}
+
+html[data-duo-compact][data-duo-strip-left] [data-testid="app-layout-root"] {
+  margin-left: var(--duo-strip);
+}
+
+html[data-duo-compact] div:has(> [role="dialog"][data-side="left"]) {
+  /* bb's phone list is min(86vw, 360px), set inline; here it fills the room beside the strip */
+  --sidebar-width-mobile: calc(100vw - var(--duo-strip)) !important;
+}
+
+html[data-duo-compact] [role="dialog"][data-side="left"] {
+  width: calc(100vw - var(--duo-strip)) !important;
+  max-width: none !important;
+}
+
+html[data-duo-compact] [role="dialog"][data-side="left"] [data-sidebar="sidebar"] {
+  width: 100% !important;
+}
+
+/* With the list open the thread's own buttons have nothing to act on, as in Telegram's list. */
+html[data-duo-compact][data-duo-list] [data-duo-dock] > div[data-duo-dock-group="thread"] {
+  display: none !important;
+}
+
+/* The closed phone on its side is short: the thread's buttons start higher so they clear the tabs. */
+@media (max-height: 560px) {
+  html[data-duo-compact][data-duo-strip] {
+    --duo-strip-top: 96px;
+    --tg-gap: 8px;
+  }
+}
+
+html[data-duo-compact][data-duo-strip-left] [role="dialog"][data-side="left"] {
+  left: var(--duo-strip) !important;
+}
+
+/* The list's icon rail goes, as in the open strip: its places are in the dock and More. */
+html[data-duo-compact] :is([data-testid="sidebar-navigation-rail"], [data-sidebar="sidebar"] > div > .col-start-1) {
+  display: none !important;
+}
+
+/* The header's own buttons moved to the strip; ⋯ stays pinned under the dock's (app.ts). */
+html[data-duo-compact] [data-testid="app-page-header-content-row"] :is(button[aria-label^="Toggle sidebar"], button[aria-label^="Show right panel"], button[aria-label^="Hide right panel"]),
+html[data-duo-compact] button[data-sidebar="trigger"] {
+  display: none !important;
+}
+
+html[data-duo-compact] [data-testid="app-page-header-content-row"] button[aria-label="Thread actions"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- Open and upright: bars at the top, as on any iPhone ---------- */
+
+/* Back: a glass circle at the top left, in place of bb's list button. */
+html[data-duo-bars] [data-duo-dock] {
+  display: contents;
+}
+
+html[data-duo-bars] [data-duo-dock] > div:not([data-duo-dock-group="bar"]) {
+  display: none !important;
+}
+
+html[data-duo-bars] [data-duo-dock] > div[data-duo-dock-group="bar"] {
+  position: fixed;
+  z-index: 40;
+  top: 8px; /* in the header row, where bb's list button sits */
+  left: 12px;
+}
+
+html[data-duo-bars] [data-duo-dock] > div[data-duo-dock-group="bar"][hidden],
+html[data-duo-bars] [data-duo-dock] button[hidden] {
+  display: none;
+}
+
+html[data-duo-bars] [data-duo-dock] > div[data-duo-dock-group="bar"] button {
+  display: grid;
+  place-items: center;
+  width: var(--tg-bar);
+  height: var(--tg-bar);
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: var(--foreground);
+  background: var(--duo-glass);
+  -webkit-backdrop-filter: var(--duo-glass-blur);
+  backdrop-filter: var(--duo-glass-blur);
+  box-shadow: var(--tg-glass-shadow);
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-duo-bars] [data-duo-dock] > div[data-duo-dock-group="bar"] button svg {
+  width: var(--duo-dock-icon);
+  height: var(--duo-dock-icon);
+}
+
+html[data-duo-bars][data-duo-back] button[aria-label^="Toggle sidebar"] {
+  visibility: hidden;
+}
+
+/* The header's other buttons: glass circles like Telegram's. */
+html[data-duo-bars] [data-testid="app-page-header-content-row"] :is(button[aria-label^="Show right panel"], button[aria-label^="Hide right panel"]) {
+  width: var(--tg-bar);
+  height: var(--tg-bar);
+  border-radius: 999px;
+  background: var(--duo-glass);
+  -webkit-backdrop-filter: var(--duo-glass-blur);
+  backdrop-filter: var(--duo-glass-blur);
+  box-shadow: var(--tg-glass-shadow);
+}
+
+/* A long menu opened from the edge column fits the screen and scrolls inside, rather than running off the bottom. */
+html[data-duo-layout] [role="menu"]:not([data-duo-sheet]) {
+  max-height: calc(var(--radix-dropdown-menu-content-available-height, 100dvh) - 16px) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+/* The closed screen's header lost its list button to the strip, so its room for it goes too: the title capsule centres on the content. */
+html[data-duo-compact] [data-testid="app-page-header-content-row"] {
+  padding-left: 0 !important;
+}
+
+/* ---------- Open and upright: the closed screen's column, under the right thumb ---------- */
+
+/*
+ * The open phone upright keeps every control under the right thumb. app.ts gives the upright open phone a 72pt
+ * column of its own on the right and marks it compact, so it is laid out as the
+ * closed screen. The screen is 951pt tall, so the column doesn't start under the
+ * clock: the thread's buttons, the tabs and New thread stack up from the bottom
+ * corner, where the right thumb rests, in the closed screen's order.
+ */
+html[data-duo-column][data-duo-compact] [data-duo-dock] {
+  position: fixed;
+  z-index: 40;
+  right: var(--duo-strip-x);
+  bottom: var(--duo-dock-bottom);
+  translate: 50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--tg-gap) + 4px);
+}
+
+html[data-duo-column][data-duo-compact] [data-duo-dock] > div {
+  position: static;
+  translate: none;
 }

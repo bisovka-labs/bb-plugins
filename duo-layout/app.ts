@@ -31,6 +31,21 @@ const MARK = "data-duo-layout";
 const STRIP = "data-duo-strip";
 const STRIP_LEFT = "data-duo-strip-left";
 const STRIP_MIN_PX = 56; // narrower insets (a notch's sliver) stay empty
+// All four Duo poses, laid out like Telegram. The closed phone (466pt) and the
+// closed phone on its side are narrower than 48rem: their buttons go to the
+// strip at the edge (COMPACT); where there is no strip, bars at the top (BARS).
+const COMPACT = "data-duo-compact";
+const BARS = "data-duo-bars";
+const BACK = "data-duo-back";
+// The open phone upright keeps every control under the right thumb, as the
+// closed phone does. It has no side strip, so the plugin keeps its own column
+// on the right (COLUMN, a 48pt circle and 12pt either side) and lays it out as
+// the closed screen's strip. An ordinary phone
+// upright (under 560pt) and anything held sideways keep the top bars.
+const COLUMN = "data-duo-column";
+const COLUMN_PX = 72;
+const COLUMN_MIN_PX = 560;
+const TOUCH = "(pointer: coarse)";
 const DECIDE_PX = 10; // movement before choosing between swipe and scroll
 const TOGGLE_PX = 72; // horizontal travel that moves one pane
 const EDGE_PX = 24; // touches starting this close to the left edge stay with iOS
@@ -49,6 +64,7 @@ type Swipe = { id: number; x0: number; y0: number; horizontal: boolean | null; i
 
 // Lucide glyphs (ISC), drawn at 22pt in the dock.
 const ICONS = {
+  back: '<path d="m15 18-6-6 6-6"/>',
   threads: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
   panel: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>',
   archive:
@@ -118,6 +134,18 @@ function insideScrollableX(target: Element, boundary: Element) {
 const sidebarOpen = () =>
   document.querySelector('[data-collapsible][data-side="left"]')?.getAttribute("data-state") === "expanded";
 const toggleSidebar = () => document.querySelector<HTMLElement>('[data-sidebar="trigger"]')?.click();
+// On a narrow screen the thread list is bb's sheet, not the collapsible column.
+const listOpen = () =>
+  sidebarOpen() || document.querySelector('[role="dialog"][data-side="left"]')?.getAttribute("data-state") === "open";
+const onThread = () => /\/threads\//.test(location.pathname);
+/** Unread chats as «Свежие чаты» counts them in its «Непрочитанные · N» header; 0 when it isn't there. */
+function unreadCount() {
+  for (const b of document.querySelectorAll('button[aria-label*="Непрочитанные"]')) {
+    const m = (b.getAttribute("aria-label") ?? "").match(/Непрочитанные\s*·\s*(\d+)/);
+    if (m) return Number(m[1]);
+  }
+  return 0;
+}
 // bb keeps a closed right panel mounted at size 0, Hide button included.
 const panelOpen = () => {
   const panel = document.querySelector('[data-panel-id="thread-detail-secondary-panel"]');
@@ -146,6 +174,8 @@ const railButton = (label: string) => find(`[data-testid="app-nav-rail"] button[
 
 /** bb's menus (Radix) open on a primary pointerdown, not on click. */
 function openMenu(trigger: HTMLElement | null) {
+  // On a narrow screen bb shows the same menu as a bottom sheet, opened by a tap.
+  if (!document.documentElement.hasAttribute(MARK)) return trigger?.click();
   trigger?.dispatchEvent(
     new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, pointerType: "mouse", isPrimary: true }),
   );
@@ -166,6 +196,7 @@ type DockItem = {
   run: () => void;
   present?: () => boolean;
   pressed?: () => boolean;
+  badge?: () => number;
 };
 
 function dockButton(item: DockItem) {
@@ -174,6 +205,11 @@ function dockButton(item: DockItem) {
   button.setAttribute("aria-label", item.label);
   button.title = item.label;
   button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${item.icon}</svg>`;
+  const badge = item.badge ? document.createElement("span") : null;
+  if (badge) {
+    badge.dataset.duoBadge = "";
+    button.append(badge);
+  }
   button.addEventListener("click", () => {
     haptic();
     item.run();
@@ -182,6 +218,12 @@ function dockButton(item: DockItem) {
   const refresh = () => {
     const hidden = item.present ? !item.present() : false;
     if (button.hidden !== hidden) button.hidden = hidden;
+    if (badge && item.badge) {
+      const n = item.badge();
+      const text = n > 0 ? String(n) : "";
+      if (badge.textContent !== text) badge.textContent = text;
+      if (badge.hidden !== !text) badge.hidden = !text;
+    }
     if (!item.pressed) return;
     const pressed = String(item.pressed());
     if (button.getAttribute("aria-pressed") !== pressed) button.setAttribute("aria-pressed", pressed);
@@ -260,9 +302,25 @@ function mount({ signal }: { signal: AbortSignal }) {
     },
     present: () => moreTargets().length > 0,
   };
+  // Back, as Telegram's: on the open screen bb's own history Back (the list is
+  // already beside the thread), on a narrow screen back to the list. The badge
+  // is the unread count, as on Telegram's back button.
+  const GO_BACK = 'button[aria-label="Go back"]';
+  const back = (): DockItem => ({
+    label: "Back",
+    icon: ICONS.back,
+    run: () => (root.hasAttribute(MARK) ? find(GO_BACK)?.click() : toggleSidebar()),
+    present: () =>
+      root.hasAttribute(MARK)
+        ? !!find(GO_BACK) && find(GO_BACK)!.getAttribute("aria-disabled") !== "true"
+        : onThread() && !listOpen(),
+    badge: unreadCount,
+  });
   dock.append(
+    group("bar", back()),
     group(
       "thread",
+      back(),
       { label: "Right panel", icon: ICONS.panel, run: togglePanel, present: () => !!(find(PANEL) || find(THREAD_MENU)), pressed: panelOpen },
       { label: "Archive thread", icon: ICONS.archive, run: () => find(ARCHIVE)?.click(), present: () => !!find(ARCHIVE) },
       { label: "Thread actions", icon: ICONS.more, run: () => openMenu(find(THREAD_MENU)), present: () => !!find(THREAD_MENU) },
@@ -279,7 +337,7 @@ function mount({ signal }: { signal: AbortSignal }) {
           if (home && home.getAttribute("aria-current") !== "page") home.click();
           else toggleSidebar();
         },
-        pressed: () => (railButton("Home") ? route("Home")() && sidebarOpen() : sidebarOpen()),
+        pressed: () => (railButton("Home") ? route("Home")() && listOpen() : listOpen()),
       },
       { label: "Todo", icon: ICONS.todo, run: () => railButton("Todo")?.click(), present: () => !!railButton("Todo"), pressed: route("Todo") },
       moreItem,
@@ -366,6 +424,11 @@ function mount({ signal }: { signal: AbortSignal }) {
     }
     followPanel();
     pinThreadMenu(force);
+    const barBack = dock.querySelector<HTMLElement>('[data-duo-dock-group="bar"] button');
+    const showsBack = root.hasAttribute(BARS) && !!barBack && !barBack.hidden;
+    if (root.hasAttribute(BACK) !== showsBack) root.toggleAttribute(BACK, showsBack);
+    const list = root.hasAttribute(COMPACT) && listOpen();
+    if (root.hasAttribute("data-duo-list") !== list) root.toggleAttribute("data-duo-list", list);
   };
   // A streaming reply changes the timeline every frame and nothing the dock
   // shows lives there, so those changes are skipped without any work.
@@ -377,22 +440,34 @@ function mount({ signal }: { signal: AbortSignal }) {
     if (stream && records.every((r) => stream.contains(r.target))) return;
     frame = requestAnimationFrame(() => refresh());
   });
-  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-state", "data-panel-size", "aria-current", "aria-label"] });
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-state", "data-panel-size", "aria-current", "aria-label", "aria-disabled"] });
   signal.addEventListener("abort", () => observer.disconnect());
 
+  const touchQuery = window.matchMedia(TOUCH);
   const sync = () => {
     const wide = query.matches;
+    const touch = touchQuery.matches;
     root.toggleAttribute(MARK, wide);
-    const { right, bottom, left } = wide ? insets() : { right: 0, bottom: 0, left: 0 };
+    const { top, right, bottom, left } = wide || touch ? insets() : { top: 0, right: 0, bottom: 0, left: 0 };
     const onLeft = right < STRIP_MIN_PX && left >= STRIP_MIN_PX;
-    root.toggleAttribute(STRIP, right >= STRIP_MIN_PX || onLeft);
+    const narrow = !wide && touch;
+    const realStrip = right >= STRIP_MIN_PX || onLeft;
+    const column =
+      narrow && !realStrip && window.innerWidth >= COLUMN_MIN_PX && window.innerHeight > window.innerWidth;
+    const strip = realStrip || column;
+    root.toggleAttribute(STRIP, strip);
     root.toggleAttribute(STRIP_LEFT, onLeft);
-    root.style.setProperty("--duo-strip", `${onLeft ? left : right}px`);
+    root.toggleAttribute(COLUMN, column);
+    root.toggleAttribute(COMPACT, narrow && strip);
+    root.toggleAttribute(BARS, narrow && !strip);
+    root.style.setProperty("--duo-strip", `${column ? COLUMN_PX : onLeft ? left : right}px`);
     root.style.setProperty("--duo-inset-bottom", `${bottom}px`);
+    root.style.setProperty("--duo-inset-top", `${top}px`);
     refresh(true);
   };
   sync();
   query.addEventListener("change", sync, { signal });
+  touchQuery.addEventListener("change", sync, { signal });
   // Rotating flips the strip between the sides; the inset settles after the turn.
   let timer: number | undefined;
   const later = () => {
@@ -513,7 +588,12 @@ function mount({ signal }: { signal: AbortSignal }) {
     root.removeAttribute(MARK);
     root.removeAttribute(STRIP);
     root.removeAttribute(STRIP_LEFT);
-    for (const name of ["--duo-strip", "--duo-inset-bottom"]) root.style.removeProperty(name);
+    root.removeAttribute(COMPACT);
+    root.removeAttribute(COLUMN);
+    root.removeAttribute(BARS);
+    root.removeAttribute(BACK);
+    root.removeAttribute("data-duo-list");
+    for (const name of ["--duo-strip", "--duo-inset-bottom", "--duo-inset-top"]) root.style.removeProperty(name);
   };
 }
 
