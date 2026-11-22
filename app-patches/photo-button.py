@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BB composer: add a photo button next to "+" that opens an image-only picker.
+"""BB composer: add a photo button next to "+" that opens a photo-and-video picker.
 Since bb 0.47 the composer is the builtin `bb--composer` plugin, so this patches
 its frontend bundle; `bb plugin reload bb--composer` (or a bb restart) serves it.
 Minified names are discovered by regex, so renames between builds are fine; an
@@ -8,8 +8,17 @@ import os, re, shutil, subprocess, sys
 F = ('/Applications/bb.app/Contents/Resources/app.asar.unpacked/node_modules/bb-app/'
      'server/dist/builtin-plugins/composer/dist/app.js')
 s = open(F).read()
+OLD_INPUT = '"data-bb-photos":"",type:"file",accept:"image/*",'
+NEW_INPUT = '"data-bb-photos":"",type:"file",accept:"image/*,video/*",'
 if 'data-bb-photos' in s:
-    sys.exit('already patched')
+    if OLD_INPUT not in s:
+        sys.exit('already patched')
+    # an earlier image-only version of this patch: let it pick videos too
+    s = s.replace(OLD_INPUT, NEW_INPUT).replace('"Attach photos"', '"Attach photos or videos"')
+    open(F, 'w').write(s)
+    subprocess.run(['node', '--check', F], check=True)
+    print('patched', F)
+    sys.exit(0)
 
 
 def one(pattern, text):
@@ -21,7 +30,7 @@ def one(pattern, text):
 # hidden image-only input in the prompt form, sharing the attach change handler
 m = one(r'(\w+)\("input",\{ref:\w+,type:"file",multiple:!0,className:"hidden",onChange:(\w+)\}\)', s)
 jsx, onChange = m.group(1), m.group(2)
-s = s[:m.end()] + (f',{jsx}("input",{{"data-bb-photos":"",type:"file",accept:"image/*",'
+s = s[:m.end()] + (f',{jsx}("input",{{{NEW_INPUT}'
                    f'multiple:!0,className:"hidden",onChange:{onChange}}})') + s[m.end():]
 
 # the "+" menu: put the photo button right after its popover trigger, reusing its
@@ -31,8 +40,8 @@ m = one(r'(\w+)\((\w+),\{ref:\w+,type:"button",size:"icon",variant:"ghost","aria
 jsx, button, cn, c1, c2 = m.groups()
 # the popover root call takes a children array, so its creator is the jsxs function
 root = one(r'(\w+)\(\w+,\{modal:!1,onOpenChange:', s[m.start() - 600:m.start()]).group(1)
-photo = (f'{jsx}({button},{{type:"button",size:"icon",variant:"ghost","aria-label":"Attach photos",'
-         f'title:"Attach photos",className:{cn}({c1},{c2},"select-none touch-manipulation ml-1 mr-3"),'
+photo = (f'{jsx}({button},{{type:"button",size:"icon",variant:"ghost","aria-label":"Attach photos or videos",'
+         f'title:"Attach photos or videos",className:{cn}({c1},{c2},"select-none touch-manipulation ml-1 mr-3"),'
          'onClick:e=>e.currentTarget.closest("form")?.querySelector("input[data-bb-photos]")?.click(),'
          f'children:{root}("svg",{{viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:1.5,'
          'strokeLinecap:"round",strokeLinejoin:"round",className:"size-4 pointer-events-none","aria-hidden":!0,children:['
