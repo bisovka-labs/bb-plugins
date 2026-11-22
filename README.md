@@ -69,6 +69,13 @@ app-patches/install.sh
 copies them to `~/.bb/patches` and installs a LaunchAgent that re-applies them
 after every bb update.
 
+`attachment-limit.py` raises the attachment limit from 35 MB to 2 GiB so videos
+attach. `install.sh` also registers `video-cleanup/video-cleanup.py`, which
+every six hours deletes attached videos older than 7 days (both bb's copy and
+the agent's copy; voice recordings are kept). Put another number of days in
+`~/.bb/patches/video-cleanup/video-cleanup.days`; `--dry-run` lists without
+deleting.
+
 ## License
 
 MIT, see `LICENSE`. `handoff/` keeps its own MIT license.
